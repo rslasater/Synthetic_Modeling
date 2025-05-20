@@ -1,10 +1,10 @@
-# 🧾 Synthetic AML Dataset Generator
+# Synthetic AML Dataset Generator
 
 This project generates small-scale, realistic anti-money laundering (AML) datasets using synthetic transaction patterns. Designed for educational use, the output is suitable for Excel-based analysis and classroom exercises.
 
 ---
 
-## 📦 Features
+## Features
 
 - Generate financial transactions with realistic timestamps, payment types, and currencies.
 - Simulate common laundering patterns such as fan-out, cycles, and scatter-gather.
@@ -13,7 +13,7 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 
@@ -35,4 +35,18 @@ source aml-env/bin/activate
 ```bash
 pip3 install -r requirements.txt
 ```
+
+# Files
+### Patterns.yaml
+The patterns.yaml file contains the instructions for each money laundering technique.
+
+| Field                     | Description                                                                                         |
+| ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `type`                    | Type of laundering pattern (`cycle`, `fan_out`, `fan_in`, `scatter_gather`, `gather_scatter`, etc.) |
+| `instances`               | How many times to inject this pattern                                                               |
+| `amount` / `total_amount` | Total amount to launder or per transaction                                                          |
+| `accounts_per_*`          | How many accounts are involved (varies by pattern)                                                  |
+| `currency`                | Optional override from default                                                                      |
+| `start_date`, `end_date`  | Timestamp range to assign to transactions                                                           |
+| `label`                   | Whether transactions should be marked as laundering                                                 |
 
