@@ -1,23 +1,34 @@
 from collections import defaultdict
 
-def propagate_laundering(transactions):
+def propagate_laundering(entries):
     """
-    Mark transactions as laundering if they receive tainted funds from a laundering source.
-    This is a one-pass, forward-only propagation based on transaction order.
+    Propagate laundering labels through debit → credit flow.
+    Assumes double-entry format with 'account_id', 'counterparty', and 'direction'.
     """
-
     tainted_accounts = set()
-    updated_transactions = []
+    updated_entries = []
 
-    for txn in transactions:
-        source = txn["source_account"]
-        target = txn["target_account"]
+    # First pass — mark tainted accounts directly
+    for entry in entries:
+        if entry.get("is_laundering", False):
+            tainted_accounts.add(entry["account_id"])
 
-        # If laundering or from a tainted source, label it and mark target as tainted
-        if txn["is_laundering"] or source in tainted_accounts:
-            txn["is_laundering"] = True
-            tainted_accounts.add(target)
+    # Second pass — propagate taint based on flow direction
+    for entry in entries:
+        direction = entry.get("direction")
+        acct = entry.get("account_id")
+        counterparty = entry.get("counterparty")
 
-        updated_transactions.append(txn)
+        # If the counterparty is tainted and this account is the recipient, mark it
+        if direction == "credit" and counterparty in tainted_accounts:
+            tainted_accounts.add(acct)
+            entry["is_laundering"] = True
 
-    return updated_transactions
+        # If this is a tainted debit, make sure the counterparty becomes tainted too
+        if direction == "debit" and acct in tainted_accounts:
+            tainted_accounts.add(counterparty)
+            entry["is_laundering"] = True
+
+        updated_entries.append(entry)
+
+    return updated_entries

@@ -33,3 +33,63 @@ def to_datetime(value):
         return datetime.strptime(value, "%Y-%m-%d")
     else:
         raise TypeError(f"Unsupported type for to_datetime: {type(value)}")
+
+def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_type, is_laundering, source_description=""):
+    rows = []
+
+    if payment_type == "cash":
+        # One-sided credit for cash deposit
+        rows.append({
+            "entry_id": txn_id,
+            "timestamp": timestamp,
+            "account_id": tgt.id,
+            "counterparty": "",
+            "amount": amount,  # Positive
+            "direction": "credit",
+            "currency": currency,
+            "payment_type": payment_type,
+            "is_laundering": is_laundering,
+            "source_description": source_description
+        })
+    else:
+        # Debit from source (amount is negative)
+        rows.append({
+            "entry_id": txn_id + "-D",
+            "timestamp": timestamp,
+            "account_id": src.id,
+            "counterparty": tgt.id,
+            "amount": -abs(amount),  # Force negative
+            "direction": "debit",
+            "currency": currency,
+            "payment_type": payment_type,
+            "is_laundering": is_laundering,
+            "source_description": source_description
+        })
+        # Credit to target (amount is positive)
+        rows.append({
+            "entry_id": txn_id + "-C",
+            "timestamp": timestamp,
+            "account_id": tgt.id,
+            "counterparty": src.id,
+            "amount": abs(amount),  # Force positive
+            "direction": "credit",
+            "currency": currency,
+            "payment_type": payment_type,
+            "is_laundering": is_laundering,
+            "source_description": source_description
+        })
+
+    return rows
+
+def generate_timestamp(start_date, end_date):
+    """
+    Generate a random timestamp between two datetime objects.
+    """
+    if isinstance(start_date, str):
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    if isinstance(end_date, str):
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+    delta = end_date - start_date
+    random_seconds = random.randint(0, int(delta.total_seconds()))
+    return start_date + timedelta(seconds=random_seconds)
