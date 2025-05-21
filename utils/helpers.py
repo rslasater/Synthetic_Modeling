@@ -1,6 +1,9 @@
 import uuid
 import random
 from datetime import datetime, timedelta, date
+from faker import Faker
+
+fake = Faker()
 
 def generate_uuid(length=12):
     """Generate a short unique ID (default 12 characters)."""
@@ -34,57 +37,103 @@ def to_datetime(value):
     else:
         raise TypeError(f"Unsupported type for to_datetime: {type(value)}")
 
-def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_type, is_laundering, source_description=""):
+def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_type, is_laundering,
+                      source_description="", known_accounts=None):
+    known_accounts = known_accounts or set()
     rows = []
 
-    if payment_type == "cash":
-        # One-sided credit for cash deposit
-        rows.append({
-            "entry_id": txn_id,
-            "timestamp": timestamp,
-            "account_id": tgt.id,
-            "counterparty": "",
-            "amount": amount,  # Positive
-            "direction": "credit",
-            "currency": currency,
-            "payment_type": payment_type,
-            "is_laundering": is_laundering,
-            "source_description": source_description
-        })
+    src_known = src is None or (hasattr(src, "id") and src.id in known_accounts)
+    tgt_known = hasattr(tgt, "id") and tgt.id in known_accounts
+
+    # Dynamically name destination based on target account owner_type
+    if hasattr(tgt, "owner_type"):
+        if tgt.owner_type == "Person":
+            recipient_name = fake.name()
+        elif tgt.owner_type == "Company":
+            recipient_name = fake.company()
+        else:
+            recipient_name = fake.name()
     else:
-        # Debit from source (amount is negative)
+        recipient_name = fake.name()
+
+    credit_description = f"{payment_type.upper()} - {recipient_name}"
+    debit_description = f"{payment_type.upper()} - {recipient_name}"
+
+    if payment_type.lower() == "cash":
+        # Simulated ATM metadata
+        atm_name = fake.company()
+        atm_address = fake.address().replace("\n", ", ")
+        credit_description = f"CASH - Deposit at {atm_name} ATM ({atm_address})"
+        debit_description = f"CASH - Withdrawal at {atm_name} ATM ({atm_address})"
+
+        if src_known:
+            rows.append({
+                "entry_id": txn_id + "-D",
+                "timestamp": timestamp,
+                "account_id": src.id,
+                "counterparty": tgt.id if tgt else "",
+                "amount": -abs(amount),
+                "direction": "debit",
+                "currency": currency,
+                "payment_type": payment_type,
+                "is_laundering": is_laundering,
+                "source_description": debit_description
+            })
+
+        if tgt_known:
+            rows.append({
+                "entry_id": txn_id + "-C",
+                "timestamp": timestamp,
+                "account_id": tgt.id,
+                "counterparty": src.id if src else "",
+                "amount": abs(amount),
+                "direction": "credit",
+                "currency": currency,
+                "payment_type": payment_type,
+                "is_laundering": is_laundering,
+                "source_description": credit_description
+            })
+
+        return rows
+
+    # Non-cash transactions
+    if src_known:
         rows.append({
             "entry_id": txn_id + "-D",
             "timestamp": timestamp,
             "account_id": src.id,
             "counterparty": tgt.id,
-            "amount": -abs(amount),  # Force negative
+            "amount": -abs(amount),
             "direction": "debit",
             "currency": currency,
             "payment_type": payment_type,
             "is_laundering": is_laundering,
-            "source_description": source_description
+            "source_description": debit_description
         })
-        # Credit to target (amount is positive)
+
+    if tgt_known:
         rows.append({
             "entry_id": txn_id + "-C",
             "timestamp": timestamp,
             "account_id": tgt.id,
-            "counterparty": src.id,
-            "amount": abs(amount),  # Force positive
+            "counterparty": src.id if src else "",
+            "amount": abs(amount),
             "direction": "credit",
             "currency": currency,
             "payment_type": payment_type,
             "is_laundering": is_laundering,
-            "source_description": source_description
+            "source_description": credit_description
         })
+
+    print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id}, src_known: {src_known}, tgt_known: {tgt_known}")
+    if not src_known and not tgt_known:
+        print(f"⚠️ Skipping txn {txn_id}: both accounts unknown")
 
     return rows
 
+
 def generate_timestamp(start_date, end_date):
-    """
-    Generate a random timestamp between two datetime objects.
-    """
+    """Generate a random timestamp between two datetime objects."""
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d")
     if isinstance(end_date, str):
@@ -93,3 +142,22 @@ def generate_timestamp(start_date, end_date):
     delta = end_date - start_date
     random_seconds = random.randint(0, int(delta.total_seconds()))
     return start_date + timedelta(seconds=random_seconds)
+
+def describe_transaction(payment_type, purpose=None):
+    company = fake.company()
+    name = fake.name()
+    address = fake.address().replace("\n", ", ")
+
+    if payment_type == "ach":
+        return f"ACH - {purpose} from {company} ({address})"
+    elif payment_type == "cash":
+        direction = "Deposit" if purpose == "Deposit" else "Withdrawal"
+        return f"CASH - {direction} at {company} ATM ({address})"
+    elif payment_type == "wire":
+        return f"WIRE - {purpose} via {company} Bank"
+    elif payment_type == "credit_card":
+        return f"CREDIT CARD - {purpose} charged to account at {company}"
+    elif payment_type == "check":
+        return f"CHECK - {purpose} written by {name}"
+
+    return f"{payment_type.upper()} - {purpose or 'Transaction'}"
