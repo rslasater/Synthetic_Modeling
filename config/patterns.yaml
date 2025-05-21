@@ -13,7 +13,7 @@ patterns:
     source_accounts: 1
     targets_per_source: 4
     amount_per_target: 500
-    currency: EUR
+    currency: USD
     start_date: "2025-01-08"
     end_date: "2025-01-14"
     label: true

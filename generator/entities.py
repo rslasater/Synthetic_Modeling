@@ -50,7 +50,8 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 owner_id=entity.id,
                 owner_type=entity.__class__.__name__,
                 bank_id=bank.id,
-                currency=random.choice(["USD", "EUR", "CHF"])
+                #currency=random.choice(["USD", "EUR", "CHF"])
+                currency="USD"  # Default to USD for simplicity
             )
             entity.accounts.append(account)
             all_accounts.append(account)

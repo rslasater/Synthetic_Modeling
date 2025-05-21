@@ -1,8 +1,8 @@
 import random
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from generator.transactions import generate_timestamp, PAYMENT_TYPES
-from utils.helpers import to_datetime
+from utils.helpers import to_datetime, generate_uuid, split_transaction
 
 
 def inject_patterns(accounts, pattern_config):
@@ -33,24 +33,27 @@ def inject_cycle_pattern(accounts, pattern):
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
-
     selected = random.sample(accounts, count)
     transactions = []
+    safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
     for i in range(count):
         src = selected[i]
-        tgt = selected[(i + 1) % count]  # wrap around to make a cycle
-        txn = {
-            "transaction_id": str(uuid.uuid4())[:12],
-            "timestamp": generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S"),
-            "source_account": src.id,
-            "target_account": tgt.id,
-            "amount": round(amount, 2),
-            "currency": currency,
-            "payment_type": random.choice(PAYMENT_TYPES),
-            "is_laundering": True
-        }
-        transactions.append(txn)
+        tgt = selected[(i + 1) % count]
+        txn_id = generate_uuid()
+        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+
+        entries = split_transaction(
+            txn_id=txn_id,
+            timestamp=timestamp,
+            src=src,
+            tgt=tgt,
+            amount=round(amount, 2),
+            currency=currency,
+            payment_type=random.choice(safe_payment_types),
+            is_laundering=True
+        )
+        transactions.extend(entries)
 
     return transactions
 
@@ -62,35 +65,41 @@ def inject_fan_out_pattern(accounts, pattern):
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
+    safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
     source = random.choice(accounts)
     targets = random.sample([a for a in accounts if a.id != source.id], num_targets)
 
     transactions = []
     for tgt in targets:
-        txn = {
-            "transaction_id": str(uuid.uuid4())[:12],
-            "timestamp": generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S"),
-            "source_account": source.id,
-            "target_account": tgt.id,
-            "amount": round(amount, 2),
-            "currency": currency,
-            "payment_type": random.choice(PAYMENT_TYPES),
-            "is_laundering": True
-        }
-        transactions.append(txn)
+        txn_id = generate_uuid()
+        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+
+        entries = split_transaction(
+            txn_id=txn_id,
+            timestamp=timestamp,
+            src=source,
+            tgt=tgt,
+            amount=round(amount, 2),
+            currency=currency,
+            payment_type=random.choice(safe_payment_types),
+            is_laundering=True
+        )
+        transactions.extend(entries)
 
     return transactions
+
 
 def inject_scatter_gather_pattern(accounts, pattern):
     sources = pattern.get("sources", 1)
     intermediates = pattern.get("intermediates", 3)
     sinks = pattern.get("sinks", 1)
-    total_amount = pattern.get("total_amount", 3000)
+    total_amount = pattern.get("total_amount", 5000)
     currency = pattern.get("currency", "USD")
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
+    safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
     selected = random.sample(accounts, sources + intermediates + sinks)
     src_accounts = selected[:sources]
@@ -102,31 +111,37 @@ def inject_scatter_gather_pattern(accounts, pattern):
     # Scatter: sources → intermediates
     for src in src_accounts:
         for int_acct in int_accounts:
-            txn = {
-                "transaction_id": str(uuid.uuid4())[:12],
-                "timestamp": generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S"),
-                "source_account": src.id,
-                "target_account": int_acct.id,
-                "amount": round(total_amount / (sources * intermediates), 2),
-                "currency": currency,
-                "payment_type": random.choice(PAYMENT_TYPES),
-                "is_laundering": True
-            }
-            transactions.append(txn)
+            txn_id = generate_uuid()
+            timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=src,
+                tgt=int_acct,
+                amount=round(total_amount / (sources * intermediates), 2),
+                currency=currency,
+                payment_type=random.choice(safe_payment_types),
+                is_laundering=True
+            )
+            transactions.extend(entries)
 
     # Gather: intermediates → sinks
     for int_acct in int_accounts:
         for sink in sink_accounts:
-            txn = {
-                "transaction_id": str(uuid.uuid4())[:12],
-                "timestamp": generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S"),
-                "source_account": int_acct.id,
-                "target_account": sink.id,
-                "amount": round(total_amount / (intermediates * sinks), 2),
-                "currency": currency,
-                "payment_type": random.choice(PAYMENT_TYPES),
-                "is_laundering": True
-            }
-            transactions.append(txn)
+            txn_id = generate_uuid()
+            timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=int_acct,
+                tgt=sink,
+                amount=round(total_amount / (intermediates * sinks), 2),
+                currency=currency,
+                payment_type=random.choice(safe_payment_types),
+                is_laundering=True
+            )
+            transactions.extend(entries)
 
     return transactions
