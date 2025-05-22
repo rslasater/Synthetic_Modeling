@@ -5,7 +5,7 @@ from faker import Faker
 faker = Faker()
 
 # === Constants ===
-CURRENCIES = ["USD"]
+CURRENCIES = ["CNY"]
 BANK_NAMES = ["Chase", "Bank of America", "Wells Fargo", "Citi", "Capital One"]
 VISIBILITY_OPTIONS = ["sender", "receiver", "both"]
 
@@ -16,7 +16,7 @@ class Bank:
         self.name = name
 
 class Account:
-    def __init__(self, owner_id, owner_type, bank_id, currency="USD"):
+    def __init__(self, owner_id, owner_type, bank_id, currency="CNY"):
         self.id = str(uuid.uuid4())[:12]
         self.owner_id = owner_id
         self.owner_type = owner_type

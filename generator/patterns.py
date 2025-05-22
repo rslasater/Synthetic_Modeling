@@ -37,7 +37,7 @@ def inject_patterns(accounts, pattern_config, known_accounts=None):
 def inject_cycle_pattern(accounts, pattern, known_accounts):
     count = pattern.get("accounts_per_cycle", 3)
     amount = pattern.get("amount", 1000)
-    currency = pattern.get("currency", "USD")
+    currency = pattern.get("currency", "CNY")
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
@@ -74,7 +74,7 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
 def inject_fan_out_pattern(accounts, pattern, known_accounts):
     num_targets = pattern.get("targets_per_source", 3)
     amount = pattern.get("amount_per_target", 500)
-    currency = pattern.get("currency", "USD")
+    currency = pattern.get("currency", "CNY")
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
@@ -109,7 +109,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
     intermediates = pattern.get("intermediates", 3)
     sinks = pattern.get("sinks", 1)
     total_amount = pattern.get("total_amount", 5000)
-    currency = pattern.get("currency", "USD")
+    currency = pattern.get("currency", "CNY")
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
@@ -170,7 +170,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
 def inject_fan_in_pattern(accounts, pattern, known_accounts):
     sources_per_target = pattern.get("sources_per_target", 5)
     amount_per_source = pattern.get("amount_per_source", 200)
-    currency = pattern.get("currency", "USD")
+    currency = pattern.get("currency", "CNY")
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 

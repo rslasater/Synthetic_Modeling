@@ -82,7 +82,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             src=src,
             tgt=tgt,
             amount=amount,
-            currency="USD",
+            currency="CNY",
             payment_type=payment_type,
             is_laundering=False,
             source_description=source_description,

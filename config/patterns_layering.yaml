@@ -3,7 +3,7 @@ patterns:
     instances: 3
     accounts_per_cycle: 4
     amount: 2500
-    currency: "USD"
+    currency: "CNY"
     start_date: "2025-01-01"
     end_date: "2025-01-10"
     label: true
@@ -14,7 +14,7 @@ patterns:
     intermediates: 3
     sinks: 1
     total_amount: 5000
-    currency: "USD"
+    currency: "CNY"
     start_date: "2025-01-11"
     end_date: "2025-01-20"
     label: true
