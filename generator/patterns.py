@@ -2,7 +2,14 @@ import random
 import uuid
 from datetime import datetime
 from generator.transactions import generate_timestamp, PAYMENT_TYPES
-from utils.helpers import to_datetime, generate_uuid, split_transaction, describe_transaction, generate_timestamp
+from utils.helpers import (
+    to_datetime,
+    generate_uuid,
+    split_transaction,
+    describe_transaction,
+    generate_timestamp,
+    safe_sample,
+)
 
 def inject_patterns(accounts, pattern_config, known_accounts=None):
     laundering_transactions = []
@@ -34,13 +41,17 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
-    selected = random.sample(accounts, count)
+    selected = safe_sample(accounts, count)
+    actual_count = len(selected)
+    if actual_count < 2:
+        return []
+
     transactions = []
     safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
-    for i in range(count):
+    for i in range(actual_count):
         src = selected[i]
-        tgt = selected[(i + 1) % count]
+        tgt = selected[(i + 1) % actual_count]
         txn_id = generate_uuid()
         timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -70,7 +81,7 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts):
     safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
     source = random.choice(accounts)
-    targets = random.sample([a for a in accounts if a.id != source.id], num_targets)
+    targets = safe_sample([a for a in accounts if a.id != source.id], num_targets)
 
     transactions = []
     for tgt in targets:
@@ -104,10 +115,15 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
 
     safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
-    selected = random.sample(accounts, sources + intermediates + sinks)
-    src_accounts = selected[:sources]
-    int_accounts = selected[sources:sources + intermediates]
-    sink_accounts = selected[-sinks:]
+    accounts_pool = list(accounts)
+    random.shuffle(accounts_pool)
+
+    src_accounts = [accounts_pool.pop() for _ in range(min(sources, len(accounts_pool)))]
+    int_accounts = [accounts_pool.pop() for _ in range(min(intermediates, len(accounts_pool)))]
+    sink_accounts = [accounts_pool.pop() for _ in range(min(sinks, len(accounts_pool)))]
+
+    if not src_accounts or not int_accounts or not sink_accounts:
+        return []
 
     transactions = []
 
@@ -122,7 +138,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
                 timestamp=timestamp,
                 src=src,
                 tgt=int_acct,
-                amount=round(total_amount / (sources * intermediates), 2),
+                amount=round(total_amount / max(1, len(src_accounts) * len(int_accounts)), 2),
                 currency=currency,
                 payment_type=random.choice(safe_payment_types),
                 is_laundering=True,
@@ -141,7 +157,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
                 timestamp=timestamp,
                 src=int_acct,
                 tgt=sink,
-                amount=round(total_amount / (intermediates * sinks), 2),
+                amount=round(total_amount / max(1, len(int_accounts) * len(sink_accounts)), 2),
                 currency=currency,
                 payment_type=random.choice(safe_payment_types),
                 is_laundering=True,
@@ -164,7 +180,7 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
 
     # Select one target and multiple unique sources
     target = random.choice(accounts)
-    sources = random.sample([a for a in accounts if a.id != target.id], sources_per_target)
+    sources = safe_sample([a for a in accounts if a.id != target.id], sources_per_target)
 
     for src in sources:
         txn_id = generate_uuid()
