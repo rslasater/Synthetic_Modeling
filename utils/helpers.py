@@ -42,8 +42,8 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
     known_accounts = known_accounts or set()
     rows = []
 
-    src_known = src is None or (hasattr(src, "id") and src.id in known_accounts)
-    tgt_known = hasattr(tgt, "id") and tgt.id in known_accounts
+    src_known = src is not None and hasattr(src, "id") and src.id in known_accounts
+    tgt_known = tgt is not None and hasattr(tgt, "id") and tgt.id in known_accounts
 
     # Dynamically name destination based on target account owner_type
     if hasattr(tgt, "owner_type"):
@@ -63,21 +63,65 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
         # Simulated ATM metadata
         atm_name = fake.company()
         atm_address = fake.address().replace("\n", ", ")
+        atm_id = generate_uuid(8)
         credit_description = f"CASH - Deposit at {atm_name} ATM ({atm_address})"
         debit_description = f"CASH - Withdrawal at {atm_name} ATM ({atm_address})"
 
+        placeholder_cp = "ATM"
+
+        # Deposit: src is None
+        if src is None and tgt is not None:
+            if tgt_known:
+                rows.append({
+                    "entry_id": txn_id + "-C",
+                    "timestamp": timestamp,
+                    "account_id": tgt.id,
+                    "counterparty": placeholder_cp,
+                    "amount": abs(amount),
+                    "direction": "credit",
+                    "currency": currency,
+                    "payment_type": payment_type,
+                    "is_laundering": is_laundering,
+                    "source_description": credit_description,
+                    "atm_id": atm_id,
+                    "atm_location": atm_address
+                })
+            return rows
+
+        # Withdrawal: tgt is None
+        if tgt is None and src is not None:
+            if src_known:
+                rows.append({
+                    "entry_id": txn_id + "-D",
+                    "timestamp": timestamp,
+                    "account_id": src.id,
+                    "counterparty": placeholder_cp,
+                    "amount": -abs(amount),
+                    "direction": "debit",
+                    "currency": currency,
+                    "payment_type": payment_type,
+                    "is_laundering": is_laundering,
+                    "source_description": debit_description,
+                    "atm_id": atm_id,
+                    "atm_location": atm_address
+                })
+            return rows
+
+        # Traditional cash transfer between two accounts (rare)
         if src_known:
             rows.append({
                 "entry_id": txn_id + "-D",
                 "timestamp": timestamp,
                 "account_id": src.id,
-                "counterparty": tgt.id if tgt else "",
+                "counterparty": tgt.id if tgt else placeholder_cp,
                 "amount": -abs(amount),
                 "direction": "debit",
                 "currency": currency,
                 "payment_type": payment_type,
                 "is_laundering": is_laundering,
-                "source_description": debit_description
+                "source_description": debit_description,
+                "atm_id": atm_id,
+                "atm_location": atm_address
             })
 
         if tgt_known:
@@ -85,13 +129,15 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                 "entry_id": txn_id + "-C",
                 "timestamp": timestamp,
                 "account_id": tgt.id,
-                "counterparty": src.id if src else "",
+                "counterparty": src.id if src else placeholder_cp,
                 "amount": abs(amount),
                 "direction": "credit",
                 "currency": currency,
                 "payment_type": payment_type,
                 "is_laundering": is_laundering,
-                "source_description": credit_description
+                "source_description": credit_description,
+                "atm_id": atm_id,
+                "atm_location": atm_address
             })
 
         return rows
@@ -125,7 +171,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
             "source_description": credit_description
         })
 
-    print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id}, src_known: {src_known}, tgt_known: {tgt_known}")
+    print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id if tgt else 'CASH'}, src_known: {src_known}, tgt_known: {tgt_known}")
     if not src_known and not tgt_known:
         print(f"⚠️ Skipping txn {txn_id}: both accounts unknown")
 
