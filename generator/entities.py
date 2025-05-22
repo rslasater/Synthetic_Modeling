@@ -16,13 +16,17 @@ class Bank:
         self.name = name
 
 class Account:
-    def __init__(self, owner_id, owner_type, bank_id, currency="USD"):
+    def __init__(self, owner_id, owner_type, bank_id, currency="USD",
+                 owner_name=None, bank_name=None):
         self.id = str(uuid.uuid4())[:12]
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.bank_id = bank_id
         self.currency = currency
         self.account_number = str(random.randint(10**9, 10**10 - 1))
+        # Optional context for downstream transaction rows
+        self.owner_name = owner_name
+        self.bank_name = bank_name
 
 # === Base Entity ===
 class Entity:
@@ -91,7 +95,9 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 owner_id=entity.id,
                 owner_type=entity.__class__.__name__,
                 bank_id=bank.id,
-                currency=random.choice(CURRENCIES)
+                currency=random.choice(CURRENCIES),
+                owner_name=entity.name,
+                bank_name=bank.name
             )
             entity.accounts.append(account)
             all_accounts.append(account)
