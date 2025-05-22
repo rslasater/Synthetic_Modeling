@@ -22,24 +22,13 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
     while success < n and attempts < n * 10:  # Avoid infinite loops
         attempts += 1
 
-        src, tgt = random.sample(accounts, 2)
-        while src.id == tgt.id:
-            src, tgt = random.sample(accounts, 2)
-
-        src_entity = next((e for e in entities if e.id == src.owner_id), None)
-        tgt_entity = next((e for e in entities if e.id == tgt.owner_id), None)
-        if not src_entity or not tgt_entity:
+        # Randomly choose a primary account and its owning entity
+        primary_acct = random.choice(accounts)
+        primary_entity = next((e for e in entities if e.id == primary_acct.owner_id), None)
+        if not primary_entity:
             continue
 
-        if src_entity.visibility not in ["sender", "both"] or tgt_entity.visibility not in ["receiver", "both"]:
-            skipped_visibility += 1
-            continue
-
-        if src.id not in known_accounts and tgt.id not in known_accounts:
-            skipped_known += 1
-            continue
-
-        sender_rules = src_entity.get_allowed_transactions()
+        sender_rules = primary_entity.get_allowed_transactions()
         if not sender_rules:
             skipped_payment_type += 1
             continue
@@ -51,6 +40,41 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
         timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
         amount = round(random.uniform(50, 5000), 2)
         txn_id = generate_uuid()
+
+        # Determine src/tgt accounts based on payment type
+        if payment_type.lower() == "cash":
+            deposit = purpose.lower() == "deposit" if purpose else random.choice([True, False])
+            if deposit:
+                src = None
+                tgt = primary_acct
+                if tgt.id not in known_accounts:
+                    skipped_known += 1
+                    continue
+                if primary_entity.visibility not in ["receiver", "both"]:
+                    skipped_visibility += 1
+                    continue
+            else:
+                src = primary_acct
+                tgt = None
+                if src.id not in known_accounts:
+                    skipped_known += 1
+                    continue
+                if primary_entity.visibility not in ["sender", "both"]:
+                    skipped_visibility += 1
+                    continue
+        else:
+            # Non-cash transfers require two accounts
+            src = primary_acct
+            tgt = random.choice([a for a in accounts if a.id != src.id])
+            tgt_entity = next((e for e in entities if e.id == tgt.owner_id), None)
+            if not tgt_entity:
+                continue
+            if src.id not in known_accounts and tgt.id not in known_accounts:
+                skipped_known += 1
+                continue
+            if primary_entity.visibility not in ["sender", "both"] or tgt_entity.visibility not in ["receiver", "both"]:
+                skipped_visibility += 1
+                continue
 
         entries = split_transaction(
             txn_id=txn_id,
