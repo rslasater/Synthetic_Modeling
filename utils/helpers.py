@@ -73,6 +73,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
         if src is None and tgt is not None:
             if tgt_known:
                 rows.append({
+                    "transaction_id": txn_id,
                     "entry_id": txn_id + "-C",
                     "timestamp": timestamp,
                     "account_id": tgt.id,
@@ -92,6 +93,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
         if tgt is None and src is not None:
             if src_known:
                 rows.append({
+                    "transaction_id": txn_id,
                     "entry_id": txn_id + "-D",
                     "timestamp": timestamp,
                     "account_id": src.id,
@@ -110,6 +112,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
         # Traditional cash transfer between two accounts (rare)
         if src_known:
             rows.append({
+                "transaction_id": txn_id,
                 "entry_id": txn_id + "-D",
                 "timestamp": timestamp,
                 "account_id": src.id,
@@ -126,6 +129,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
 
         if tgt_known:
             rows.append({
+                "transaction_id": txn_id,
                 "entry_id": txn_id + "-C",
                 "timestamp": timestamp,
                 "account_id": tgt.id,
@@ -145,6 +149,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
     # Non-cash transactions
     if src_known:
         rows.append({
+            "transaction_id": txn_id,
             "entry_id": txn_id + "-D",
             "timestamp": timestamp,
             "account_id": src.id,
@@ -159,6 +164,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
 
     if tgt_known:
         rows.append({
+            "transaction_id": txn_id,
             "entry_id": txn_id + "-C",
             "timestamp": timestamp,
             "account_id": tgt.id,
