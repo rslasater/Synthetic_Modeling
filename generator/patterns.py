@@ -1,13 +1,14 @@
 import random
 import uuid
 from datetime import datetime
-from generator.transactions import generate_timestamp, PAYMENT_TYPES
+from generator.transactions import PAYMENT_TYPES
 from utils.helpers import (
     to_datetime,
     generate_uuid,
     split_transaction,
     describe_transaction,
-    generate_timestamp,
+    generate_transaction_timestamp,
+    generate_post_date,
     safe_sample,
 )
 
@@ -53,7 +54,9 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
         src = selected[i]
         tgt = selected[(i + 1) % actual_count]
         txn_id = generate_uuid()
-        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
         entries = split_transaction(
             txn_id=txn_id,
@@ -64,7 +67,8 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
             currency=currency,
             payment_type=random.choice(safe_payment_types),
             is_laundering=True,
-            known_accounts=known_accounts
+            known_accounts=known_accounts,
+            post_date=post_date
         )
         transactions.extend(entries)
 
@@ -86,7 +90,9 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts):
     transactions = []
     for tgt in targets:
         txn_id = generate_uuid()
-        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
         entries = split_transaction(
             txn_id=txn_id,
@@ -97,7 +103,8 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts):
             currency=currency,
             payment_type=random.choice(safe_payment_types),
             is_laundering=True,
-            known_accounts=known_accounts
+            known_accounts=known_accounts,
+            post_date=post_date
         )
         transactions.extend(entries)
 
@@ -131,7 +138,9 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
     for src in src_accounts:
         for int_acct in int_accounts:
             txn_id = generate_uuid()
-            timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
             entries = split_transaction(
                 txn_id=txn_id,
@@ -142,7 +151,8 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
                 currency=currency,
                 payment_type=random.choice(safe_payment_types),
                 is_laundering=True,
-                known_accounts=known_accounts
+                known_accounts=known_accounts,
+                post_date=post_date
             )
             transactions.extend(entries)
 
@@ -150,7 +160,9 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
     for int_acct in int_accounts:
         for sink in sink_accounts:
             txn_id = generate_uuid()
-            timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
             entries = split_transaction(
                 txn_id=txn_id,
@@ -161,7 +173,8 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
                 currency=currency,
                 payment_type=random.choice(safe_payment_types),
                 is_laundering=True,
-                known_accounts=known_accounts
+                known_accounts=known_accounts,
+                post_date=post_date
             )
             transactions.extend(entries)
 
@@ -184,7 +197,9 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
 
     for src in sources:
         txn_id = generate_uuid()
-        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
         payment_type = random.choice(safe_payment_types)
 
         entries = split_transaction(
@@ -197,7 +212,8 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
             payment_type=payment_type,
             is_laundering=True,
             source_description=describe_transaction(payment_type, "Fan-in Structuring"),
-            known_accounts=known_accounts
+            known_accounts=known_accounts,
+            post_date=post_date
         )
 
         transactions.extend(entries)
