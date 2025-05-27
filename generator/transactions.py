@@ -1,8 +1,14 @@
 import random
 from datetime import datetime
-import uuid
 
-from utils.helpers import generate_uuid, generate_timestamp, to_datetime, split_transaction, describe_transaction
+from utils.helpers import (
+    generate_uuid,
+    generate_transaction_timestamp,
+    generate_post_date,
+    to_datetime,
+    split_transaction,
+    describe_transaction,
+)
 
 # Common payment types
 PAYMENT_TYPES = ["wire", "credit_card", "ach", "check", "cash"]
@@ -37,7 +43,13 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
         purpose = random.choice(sender_rules[payment_type])
         source_description = describe_transaction(payment_type, purpose)
 
-        timestamp = generate_timestamp(start_dt, end_dt).strftime("%Y-%m-%d %H:%M:%S")
+        ts_dt = generate_transaction_timestamp(
+            start_dt,
+            end_dt,
+            entity_type=primary_entity.__class__.__name__,
+        )
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
         amount = round(random.uniform(50, 5000), 2)
         txn_id = generate_uuid()
 
@@ -86,7 +98,8 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             payment_type=payment_type,
             is_laundering=False,
             source_description=source_description,
-            known_accounts=known_accounts
+            known_accounts=known_accounts,
+            post_date=post_date
         )
 
         transactions.extend(entries)

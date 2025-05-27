@@ -38,7 +38,8 @@ def to_datetime(value):
         raise TypeError(f"Unsupported type for to_datetime: {type(value)}")
 
 def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_type, is_laundering,
-                      source_description="", known_accounts=None):
+                      source_description="", known_accounts=None, post_date=None):
+    """Split a transaction into debit and credit entries."""
     known_accounts = known_accounts or set()
     rows = []
 
@@ -86,6 +87,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                     "payment_type": payment_type,
                     "is_laundering": is_laundering,
                     "source_description": credit_description,
+                    "post_date": post_date,
                     "atm_id": atm_id,
                     "atm_location": atm_address
                 })
@@ -108,6 +110,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                     "payment_type": payment_type,
                     "is_laundering": is_laundering,
                     "source_description": debit_description,
+                    "post_date": post_date,
                     "atm_id": atm_id,
                     "atm_location": atm_address
                 })
@@ -129,6 +132,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                 "payment_type": payment_type,
                 "is_laundering": is_laundering,
                 "source_description": debit_description,
+                "post_date": post_date,
                 "atm_id": atm_id,
                 "atm_location": atm_address
             })
@@ -148,6 +152,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                 "payment_type": payment_type,
                 "is_laundering": is_laundering,
                 "source_description": credit_description,
+                "post_date": post_date,
                 "atm_id": atm_id,
                 "atm_location": atm_address
             })
@@ -169,7 +174,8 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
             "owner_name": src.owner_name,
             "payment_type": payment_type,
             "is_laundering": is_laundering,
-            "source_description": debit_description
+            "source_description": debit_description,
+            "post_date": post_date
         })
 
     if tgt_known:
@@ -186,7 +192,8 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
             "owner_name": tgt.owner_name,
             "payment_type": payment_type,
             "is_laundering": is_laundering,
-            "source_description": credit_description
+            "source_description": credit_description,
+            "post_date": post_date
         })
 
     print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id if tgt else 'CASH'}, src_known: {src_known}, tgt_known: {tgt_known}")
@@ -225,3 +232,82 @@ def describe_transaction(payment_type, purpose=None):
         return f"CHECK - {purpose} written by {name}"
 
     return f"{payment_type.upper()} - {purpose or 'Transaction'}"
+
+
+def is_us_federal_holiday(dt: datetime) -> bool:
+    """Return True if the given date falls on a US federal holiday (2025)."""
+    holidays_2025 = {
+        (1, 1),   # New Year's Day
+        (1, 20),  # Martin Luther King Jr. Day
+        (2, 17),  # Washington's Birthday
+        (5, 26),  # Memorial Day
+        (7, 4),   # Independence Day
+        (9, 1),   # Labor Day
+        (10, 13), # Columbus Day
+        (11, 11), # Veterans Day
+        (11, 27), # Thanksgiving Day
+        (12, 25), # Christmas Day
+    }
+    return (dt.month, dt.day) in holidays_2025
+
+
+def generate_post_date(transaction_dt: datetime) -> datetime:
+    """Return a posting datetime after ``transaction_dt`` within business hours."""
+
+    for _ in range(100):
+        # Try an offset between 0 and 3 days
+        post_dt = transaction_dt + timedelta(days=random.randint(0, 3))
+
+        # If the tentative date falls on a weekend, move to the following Monday
+        if post_dt.weekday() >= 5:
+            post_dt += timedelta(days=7 - post_dt.weekday())
+
+        # Skip US federal holidays
+        while is_us_federal_holiday(post_dt):
+            post_dt += timedelta(days=1)
+
+        # Ensure we don't exceed the three-day window
+        if (post_dt - transaction_dt).days > 3:
+            continue
+
+        # Choose a posting time within banking hours
+        start_hour = 8
+        if post_dt.date() == transaction_dt.date():
+            start_hour = max(start_hour, transaction_dt.hour)
+        if start_hour >= 17:
+            # No business hours remaining on this day
+            continue
+        hour = random.randint(start_hour, 16)
+        minute = random.randint(0, 59)
+        second = random.randint(0, 59)
+        post_dt = post_dt.replace(hour=hour, minute=minute, second=second, microsecond=0)
+
+        # Verify ordering
+        if post_dt > transaction_dt:
+            return post_dt
+
+    # Fallback: next business day at 09:00
+    post_dt = transaction_dt + timedelta(days=1)
+    post_dt = post_dt.replace(hour=9, minute=0, second=0, microsecond=0)
+    while post_dt.weekday() >= 5 or is_us_federal_holiday(post_dt):
+        post_dt += timedelta(days=1)
+    return post_dt
+
+
+def generate_transaction_timestamp(start_dt: datetime, end_dt: datetime,
+                                   entity_type: str | None = None,
+                                   override_hours: bool = False) -> datetime:
+    """Generate a transaction timestamp honoring business hour rules."""
+    for _ in range(100):
+        ts = random_timestamp(start_dt, end_dt)
+        if override_hours:
+            return ts
+
+        if entity_type == "Company":
+            if ts.weekday() < 5 and 8 <= ts.hour < 17:
+                return ts
+        else:  # Person or other
+            if 8 <= ts.hour < 20:
+                return ts
+
+    return ts  # fallback if conditions not met
