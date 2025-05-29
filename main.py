@@ -25,13 +25,19 @@ def main():
     parser.add_argument("--output", type=str, default="data/aml_dataset.xlsx", help="Output file path")
     parser.add_argument("--format", type=str, choices=["csv", "xlsx"], default="xlsx", help="Export format")
     parser.add_argument("--known_account_ratio", type=float, default=0.5, help="Fraction of accounts with full visibility")
+    parser.add_argument("--entity_file", type=str, default=None, help="Path to Excel file with entity definitions")
     parser.add_argument("--start_date", type=str, default="2025-01-01", help="Start date for transaction range")
     parser.add_argument("--end_date", type=str, default="2025-01-31", help="End date for transaction range")
 
     args = parser.parse_args()
 
     log("🔧 Generating entities...")
-    entities_data = generate_entities(n_banks=args.banks, n_individuals=args.individuals, n_companies=args.companies)
+    entities_data = generate_entities(
+        n_banks=args.banks,
+        n_individuals=args.individuals,
+        n_companies=args.companies,
+        entity_file=args.entity_file,
+    )
     accounts = entities_data["accounts"]
     entities = entities_data["entities"]
 
