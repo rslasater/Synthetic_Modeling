@@ -37,8 +37,21 @@ def to_datetime(value):
     else:
         raise TypeError(f"Unsupported type for to_datetime: {type(value)}")
 
-def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_type, is_laundering,
-                      source_description="", known_accounts=None, post_date=None):
+def split_transaction(
+    txn_id,
+    timestamp,
+    src,
+    tgt,
+    amount,
+    currency,
+    payment_type,
+    is_laundering,
+    source_description="",
+    known_accounts=None,
+    post_date=None,
+    atm_id=None,
+    atm_location=None,
+):
     """Split a transaction into debit and credit entries."""
     known_accounts = known_accounts or set()
     rows = []
@@ -61,12 +74,16 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
     debit_description = f"{payment_type.upper()} - {recipient_name}"
 
     if payment_type.lower() == "cash":
-        # Simulated ATM metadata
-        atm_name = fake.company()
-        atm_address = fake.address().replace("\n", ", ")
-        atm_id = generate_uuid(8)
-        credit_description = f"CASH - Deposit at {atm_name} ATM ({atm_address})"
-        debit_description = f"CASH - Withdrawal at {atm_name} ATM ({atm_address})"
+        # Use provided ATM/BEnt metadata if available
+        if atm_id is None:
+            atm_id = generate_uuid(8)
+        if atm_location is None:
+            atm_name = fake.company()
+            atm_address = fake.address().replace("\n", ", ")
+            atm_location = f"{atm_name} ({atm_address})"
+
+        credit_description = f"CASH - Deposit at {atm_location}"
+        debit_description = f"CASH - Withdrawal at {atm_location}"
 
         placeholder_cp = "ATM"
 
@@ -89,7 +106,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                     "source_description": credit_description,
                     "post_date": post_date,
                     "atm_id": atm_id,
-                    "atm_location": atm_address
+                    "atm_location": atm_location
                 })
             return rows
 
@@ -112,7 +129,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                     "source_description": debit_description,
                     "post_date": post_date,
                     "atm_id": atm_id,
-                    "atm_location": atm_address
+                    "atm_location": atm_location
                 })
             return rows
 
@@ -134,7 +151,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                 "source_description": debit_description,
                 "post_date": post_date,
                 "atm_id": atm_id,
-                "atm_location": atm_address
+                "atm_location": atm_location
             })
 
         if tgt_known:
@@ -154,7 +171,7 @@ def split_transaction(txn_id, timestamp, src, tgt, amount, currency, payment_typ
                 "source_description": credit_description,
                 "post_date": post_date,
                 "atm_id": atm_id,
-                "atm_location": atm_address
+                "atm_location": atm_location
             })
 
         return rows
