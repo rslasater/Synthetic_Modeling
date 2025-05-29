@@ -8,6 +8,7 @@ from utils.helpers import (
     to_datetime,
     split_transaction,
     describe_transaction,
+    fake,
 )
 import pandas as pd
 
@@ -136,6 +137,13 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
 
     merchants = profile_df[profile_df["type"] == "merchant"].copy()
     payers = profile_df[profile_df["type"].isin(["person", "company"])]
+    bent_df = profile_df[profile_df["type"] == "BEnt"]
+    bents_by_bank = {
+        str(bank): g[["name", "address"]].to_dict("records")
+        for bank, g in bent_df.groupby("bank")
+    }
+
+    pending_deposits: dict[str, float] = {}
 
     transactions = []
 
@@ -202,20 +210,123 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                 post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
                 txn_id = generate_uuid()
 
-                entries = split_transaction(
-                    txn_id=txn_id,
-                    timestamp=timestamp,
-                    src=payer_acct,
-                    tgt=tgt_acct,
-                    amount=round(amount, 2),
-                    currency="USD",
-                    payment_type=payment_type,
-                    is_laundering=False,
-                    source_description=describe_transaction(payment_type, "Purchase"),
-                    known_accounts=known_accounts,
-                    post_date=post_date
-                )
+                amount = round(amount, 2)
 
-                transactions.extend(entries)
+                if payment_type == "cash":
+                    # Withdrawal by payer via BEnt
+                    payer_bank = str(payer.get("bank"))
+                    payer_bents = bents_by_bank.get(payer_bank, [])
+                    if payer_bents:
+                        bent = random.choice(payer_bents)
+                        bent_id = bent.get("name")
+                        bent_loc = bent.get("address")
+                    else:
+                        bent_id = generate_uuid(8)
+                        bent_loc = fake.address().replace("\n", ", ")
+
+                    entries = split_transaction(
+                        txn_id=txn_id + "W",
+                        timestamp=timestamp,
+                        src=payer_acct,
+                        tgt=None,
+                        amount=amount,
+                        currency="USD",
+                        payment_type="cash",
+                        is_laundering=False,
+                        known_accounts=known_accounts,
+                        post_date=post_date,
+                        atm_id=bent_id,
+                        atm_location=bent_loc
+                    )
+                    transactions.extend(entries)
+
+                    deposit_now = random.choice([True, False])
+                    if deposit_now:
+                        merch_bank = str(merchant.get("bank"))
+                        merch_bents = bents_by_bank.get(merch_bank, [])
+                        if merch_bents:
+                            bent2_rec = random.choice(merch_bents)
+                            bent2 = bent2_rec.get("name")
+                            bent2_loc = bent2_rec.get("address")
+                        else:
+                            bent2 = generate_uuid(8)
+                            bent2_loc = fake.address().replace("\n", ", ")
+                        entries = split_transaction(
+                            txn_id=txn_id + "D",
+                            timestamp=timestamp,
+                            src=None,
+                            tgt=tgt_acct,
+                            amount=amount,
+                            currency="USD",
+                            payment_type="cash",
+                            is_laundering=False,
+                            known_accounts=known_accounts,
+                            post_date=post_date,
+                            atm_id=bent2,
+                            atm_location=bent2_loc
+                        )
+                        transactions.extend(entries)
+                    else:
+                        pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + amount
+                else:
+                    entries = split_transaction(
+                        txn_id=txn_id,
+                        timestamp=timestamp,
+                        src=payer_acct,
+                        tgt=tgt_acct,
+                        amount=amount,
+                        currency="USD",
+                        payment_type=payment_type,
+                        is_laundering=False,
+                        source_description=describe_transaction(payment_type, "Purchase"),
+                        known_accounts=known_accounts,
+                        post_date=post_date
+                    )
+                    transactions.extend(entries)
+
+    # Batch deposit accumulated cash for merchants/companies
+    for acct_id, amt in pending_deposits.items():
+        merchant_row = merchants[merchants["account_number"] == acct_id]
+        if merchant_row.empty:
+            continue
+        merchant = merchant_row.iloc[0]
+        merch_bank = str(merchant.get("bank"))
+        merch_bents = bents_by_bank.get(merch_bank, [])
+        if merch_bents:
+            bent_rec = random.choice(merch_bents)
+            bent_id = bent_rec.get("name")
+            bent_loc = bent_rec.get("address")
+        else:
+            bent_id = generate_uuid(8)
+            bent_loc = fake.address().replace("\n", ", ")
+
+        tgt_acct = ProfileAccount(
+            id=acct_id,
+            owner_id=merchant["entity_id"],
+            owner_type="Merchant",
+            owner_name=merchant.get("name", ""),
+            bank_name="",
+        )
+
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        txn_id = generate_uuid()
+
+        entries = split_transaction(
+            txn_id=txn_id,
+            timestamp=timestamp,
+            src=None,
+            tgt=tgt_acct,
+            amount=round(amt, 2),
+            currency="USD",
+            payment_type="cash",
+            is_laundering=False,
+            known_accounts=known_accounts,
+            post_date=post_date,
+            atm_id=bent_id,
+            atm_location=bent_loc
+        )
+        transactions.extend(entries)
 
     return transactions
