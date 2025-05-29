@@ -4,11 +4,12 @@ import sys
 import os
 from datetime import datetime
 from random import sample
+import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from generator.entities import generate_entities
-from generator.transactions import generate_legit_transactions
+from generator.transactions import generate_legit_transactions, generate_profile_transactions
 from generator.laundering import generate_laundering_chains
 from generator.exporter import export_to_csv, export_to_excel
 from generator.labels import propagate_laundering
@@ -22,6 +23,7 @@ def main():
     parser.add_argument("--legit_txns", type=int, default=500, help="Number of legitimate transactions")
     parser.add_argument("--laundering_chains", type=int, default=10, help="Number of laundering behavior chains")
     parser.add_argument("--patterns", type=str, default=None, help="Path to laundering patterns YAML file")
+    parser.add_argument("--agent_profiles", type=str, default=None, help="Path to agent profiles Excel file")
     parser.add_argument("--output", type=str, default="data/aml_dataset.xlsx", help="Output file path")
     parser.add_argument("--format", type=str, choices=["csv", "xlsx"], default="xlsx", help="Export format")
     parser.add_argument("--known_account_ratio", type=float, default=0.5, help="Fraction of accounts with full visibility")
@@ -43,16 +45,26 @@ def main():
 
     log(f"🔍 Selected known accounts: {len(known_accounts_set)}")
 
-    log("📊 Generating legitimate transactions...")
-    legit_txns = generate_legit_transactions(
-        accounts=accounts,
-        entities=entities,
-        n=args.legit_txns,
-        start_date=args.start_date,
-        end_date=args.end_date,
-        known_accounts=known_accounts_set
-    )
-    log(f"✅ Legitimate transactions generated: {len(legit_txns)}")
+    if args.agent_profiles:
+        log(f"📂 Loading agent profiles from {args.agent_profiles}")
+        profile_df = pd.read_excel(args.agent_profiles, sheet_name="Combined_Data")
+        legit_txns = generate_profile_transactions(
+            profile_df=profile_df,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+        log(f"✅ Profile-based transactions generated: {len(legit_txns)}")
+    else:
+        log("📊 Generating legitimate transactions...")
+        legit_txns = generate_legit_transactions(
+            accounts=accounts,
+            entities=entities,
+            n=args.legit_txns,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            known_accounts=known_accounts_set
+        )
+        log(f"✅ Legitimate transactions generated: {len(legit_txns)}")
 
     laundering_txns = []
 
