@@ -237,6 +237,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         post_date=post_date,
                         atm_id=bent_id,
                         atm_location=bent_loc
+
                     )
                     transactions.extend(entries)
 
@@ -244,7 +245,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     if deposit_now:
                         merch_bank = str(merchant.get("bank"))
                         merch_bents = bents_by_bank.get(merch_bank, [])
-                        if merch_bents:
+                    if merch_bents:
                             bent2_rec = random.choice(merch_bents)
                             bent2 = bent2_rec.get("name")
                             bent2_loc = bent2_rec.get("address")
@@ -264,6 +265,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                             post_date=post_date,
                             atm_id=bent2,
                             atm_location=bent2_loc
+
                         )
                         transactions.extend(entries)
                     else:
@@ -292,13 +294,14 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
         merchant = merchant_row.iloc[0]
         merch_bank = str(merchant.get("bank"))
         merch_bents = bents_by_bank.get(merch_bank, [])
-        if merch_bents:
+       if merch_bents:
             bent_rec = random.choice(merch_bents)
             bent_id = bent_rec.get("name")
             bent_loc = bent_rec.get("address")
         else:
             bent_id = generate_uuid(8)
             bent_loc = fake.address().replace("\n", ", ")
+
 
         tgt_acct = ProfileAccount(
             id=acct_id,
