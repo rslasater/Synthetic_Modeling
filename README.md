@@ -59,3 +59,6 @@ python main.py --agent_profiles agents/agent_profiles.xlsx
 
 The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file.
 
+### BEnt Entities (ATMs/Tellers)
+`BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.
+
