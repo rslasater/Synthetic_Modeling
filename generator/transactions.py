@@ -8,6 +8,7 @@ from utils.helpers import (
     to_datetime,
     split_transaction,
     describe_transaction,
+    fake,
 )
 import pandas as pd
 
@@ -138,7 +139,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
     payers = profile_df[profile_df["type"].isin(["person", "company"])]
     bent_df = profile_df[profile_df["type"] == "BEnt"]
     bents_by_bank = {
-        str(bank): list(g["entity_id"]) for bank, g in bent_df.groupby("bank")
+        str(bank): g[["name", "address"]].to_dict("records")
+        for bank, g in bent_df.groupby("bank")
     }
 
     pending_deposits: dict[str, float] = {}
@@ -215,9 +217,12 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     payer_bank = str(payer.get("bank"))
                     payer_bents = bents_by_bank.get(payer_bank, [])
                     if payer_bents:
-                        bent_id = random.choice(payer_bents)
+                        bent = random.choice(payer_bents)
+                        bent_id = bent.get("name")
+                        bent_loc = bent.get("address")
                     else:
                         bent_id = generate_uuid(8)
+                        bent_loc = fake.address().replace("\n", ", ")
 
                     entries = split_transaction(
                         txn_id=txn_id + "W",
@@ -231,7 +236,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         known_accounts=known_accounts,
                         post_date=post_date,
                         atm_id=bent_id,
-                        atm_location=f"BEnt {bent_id} - Bank {payer_bank}"
+                        atm_location=bent_loc
+
                     )
                     transactions.extend(entries)
 
@@ -239,7 +245,13 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     if deposit_now:
                         merch_bank = str(merchant.get("bank"))
                         merch_bents = bents_by_bank.get(merch_bank, [])
-                        bent2 = random.choice(merch_bents) if merch_bents else generate_uuid(8)
+                    if merch_bents:
+                            bent2_rec = random.choice(merch_bents)
+                            bent2 = bent2_rec.get("name")
+                            bent2_loc = bent2_rec.get("address")
+                        else:
+                            bent2 = generate_uuid(8)
+                            bent2_loc = fake.address().replace("\n", ", ")
                         entries = split_transaction(
                             txn_id=txn_id + "D",
                             timestamp=timestamp,
@@ -252,7 +264,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                             known_accounts=known_accounts,
                             post_date=post_date,
                             atm_id=bent2,
-                            atm_location=f"BEnt {bent2} - Bank {merch_bank}"
+                            atm_location=bent2_loc
+
                         )
                         transactions.extend(entries)
                     else:
@@ -281,7 +294,14 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
         merchant = merchant_row.iloc[0]
         merch_bank = str(merchant.get("bank"))
         merch_bents = bents_by_bank.get(merch_bank, [])
-        bent_id = random.choice(merch_bents) if merch_bents else generate_uuid(8)
+       if merch_bents:
+            bent_rec = random.choice(merch_bents)
+            bent_id = bent_rec.get("name")
+            bent_loc = bent_rec.get("address")
+        else:
+            bent_id = generate_uuid(8)
+            bent_loc = fake.address().replace("\n", ", ")
+
 
         tgt_acct = ProfileAccount(
             id=acct_id,
@@ -308,7 +328,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             known_accounts=known_accounts,
             post_date=post_date,
             atm_id=bent_id,
-            atm_location=f"BEnt {bent_id} - Bank {merch_bank}"
+            atm_location=bent_loc
         )
         transactions.extend(entries)
 
