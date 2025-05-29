@@ -50,3 +50,12 @@ The patterns.yaml file contains the instructions for each money laundering techn
 | `start_date`, `end_date`  | Timestamp range to assign to transactions                                                           |
 | `label`                   | Whether transactions should be marked as laundering                                                 |
 
+### Agent Profiles
+If you have a structured Excel file of agent profiles, you can generate transactions based on that data:
+
+```bash
+python main.py --agent_profiles agents/agent_profiles.xlsx
+```
+
+The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file.
+

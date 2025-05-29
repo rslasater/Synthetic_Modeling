@@ -9,9 +9,22 @@ from utils.helpers import (
     split_transaction,
     describe_transaction,
 )
+import pandas as pd
 
 # Common payment types
 PAYMENT_TYPES = ["wire", "credit_card", "ach", "check", "cash"]
+
+
+class ProfileAccount:
+    """Lightweight account object used for profile-driven transactions."""
+
+    def __init__(self, id, owner_id, owner_type, owner_name="", bank_name=""):
+        self.id = str(id)
+        self.owner_id = owner_id
+        self.owner_type = owner_type
+        self.owner_name = owner_name
+        self.bank_name = bank_name
+
 
 def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-01", end_date="2025-01-31", known_accounts=None):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -110,5 +123,99 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
     print(f"[DEBUG] Skipped (visibility): {skipped_visibility}")
     print(f"[DEBUG] Skipped (unknown accounts): {skipped_known}")
     print(f"[DEBUG] Skipped (payment type issues): {skipped_payment_type}")
+
+    return transactions
+
+
+def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end_date: str) -> list[dict]:
+    """Generate transactions using structured agent profiles."""
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    known_accounts = set(profile_df["account_number"].dropna().astype(str))
+
+    merchants = profile_df[profile_df["type"] == "merchant"].copy()
+    payers = profile_df[profile_df["type"].isin(["person", "company"])]
+
+    transactions = []
+
+    for _, payer in payers.iterrows():
+        patterns = payer.get("merchant_patterns")
+        freqs = payer.get("merchant_frequency")
+        if not isinstance(patterns, str) or not isinstance(freqs, str):
+            continue
+
+        pattern_list = [p.strip() for p in patterns.split(',') if p.strip()]
+        freq_list = [float(f.strip()) for f in freqs.split(',') if f.strip()]
+        if not pattern_list or not freq_list:
+            continue
+
+        txn_scaler = float(payer.get("transaction_scaler") or 1)
+        payer_acct_id = payer.get("account_number")
+        if pd.isna(payer_acct_id):
+            payer_acct_id = payer["entity_id"]
+        payer_acct = ProfileAccount(
+            id=payer_acct_id,
+            owner_id=payer["entity_id"],
+            owner_type=payer["type"].capitalize(),
+            owner_name=payer.get("name", "")
+        )
+
+        for code, freq in zip(pattern_list, freq_list):
+            try:
+                freq_val = float(freq)
+            except ValueError:
+                continue
+            num_txns = max(1, int(round(freq_val)))
+
+            eligible = merchants[merchants["naics_code"].astype(str).str.startswith(str(int(float(code)) if code.strip().replace('.', '', 1).isdigit() else code))]
+            if eligible.empty:
+                continue
+
+            for _ in range(num_txns):
+                merchant = eligible.sample(1).iloc[0]
+                tgt_acct_id = merchant.get("account_number")
+                if pd.isna(tgt_acct_id):
+                    tgt_acct_id = merchant["entity_id"]
+                tgt_acct = ProfileAccount(
+                    id=tgt_acct_id,
+                    owner_id=merchant["entity_id"],
+                    owner_type="Merchant",
+                    owner_name=merchant.get("name", "")
+                )
+
+                pay_opts = merchant.get("accepted_payment_methods")
+                if isinstance(pay_opts, str) and pay_opts.strip():
+                    payment_types = [p.strip().lower() for p in pay_opts.split(',') if p.strip()]
+                else:
+                    payment_types = PAYMENT_TYPES
+                payment_type = random.choice(payment_types)
+
+                avg_exp = merchant.get("average_expense")
+                if pd.isna(avg_exp):
+                    avg_exp = 100.0
+                amount = random.uniform(avg_exp * 0.85, avg_exp * 1.15)
+                amount *= txn_scaler
+
+                ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type=payer_acct.owner_type)
+                timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+                post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+                txn_id = generate_uuid()
+
+                entries = split_transaction(
+                    txn_id=txn_id,
+                    timestamp=timestamp,
+                    src=payer_acct,
+                    tgt=tgt_acct,
+                    amount=round(amount, 2),
+                    currency="USD",
+                    payment_type=payment_type,
+                    is_laundering=False,
+                    source_description=describe_transaction(payment_type, "Purchase"),
+                    known_accounts=known_accounts,
+                    post_date=post_date
+                )
+
+                transactions.extend(entries)
 
     return transactions
