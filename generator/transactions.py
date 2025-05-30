@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from utils.helpers import (
     generate_uuid,
@@ -19,12 +19,32 @@ PAYMENT_TYPES = ["wire", "credit_card", "ach", "check", "cash"]
 class ProfileAccount:
     """Lightweight account object used for profile-driven transactions."""
 
-    def __init__(self, id, owner_id, owner_type, owner_name="", bank_name=""):
+    def __init__(self, id, owner_id, owner_type, owner_name="", bank_name="", address=""):
         self.id = str(id)
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.owner_name = owner_name
         self.bank_name = bank_name
+        self.address = address
+
+
+def get_payroll_dates(start_dt: datetime, end_dt: datetime) -> list[datetime]:
+    """Return payroll dates (1st and 3rd Monday) within range."""
+    dates = []
+    current = start_dt.replace(day=1)
+    while current <= end_dt:
+        first_monday = current + timedelta(days=(0 - current.weekday()) % 7)
+        third_monday = first_monday + timedelta(days=14)
+        if start_dt <= first_monday <= end_dt:
+            dates.append(first_monday)
+        if start_dt <= third_monday <= end_dt:
+            dates.append(third_monday)
+        # advance to first day of next month
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1, day=1)
+        else:
+            current = current.replace(month=current.month + 1, day=1)
+    return dates
 
 
 def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-01", end_date="2025-01-31", known_accounts=None):
@@ -166,7 +186,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             id=payer_acct_id,
             owner_id=payer["entity_id"],
             owner_type=payer["type"].capitalize(),
-            owner_name=payer.get("name", "")
+            owner_name=payer.get("name", ""),
+            address=payer.get("address", "")
         )
 
         for code, freq in zip(pattern_list, freq_list):
@@ -189,7 +210,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     id=tgt_acct_id,
                     owner_id=merchant["entity_id"],
                     owner_type="Merchant",
-                    owner_name=merchant.get("name", "")
+                    owner_name=merchant.get("name", ""),
+                    address=merchant.get("address", "")
                 )
 
                 pay_opts = merchant.get("accepted_payment_methods")
@@ -286,6 +308,69 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     )
                     transactions.extend(entries)
 
+    # Generate payroll transactions
+    employees = profile_df[(profile_df["type"] == "person") & profile_df["employer"].notna()]
+    companies = profile_df[profile_df["type"] == "company"].set_index("entity_id")
+    payroll_dates = get_payroll_dates(start_dt, end_dt)
+
+    for pay_date in payroll_dates:
+        for _, emp in employees.iterrows():
+            employer_id = emp.get("employer")
+            if employer_id not in companies.index:
+                continue
+            comp = companies.loc[employer_id]
+
+            emp_scaler = float(emp.get("transaction_scaler") or 1)
+            amount = random.uniform(5000 * 0.9, 5000 * 1.1) * emp_scaler
+
+            emp_acct_id = emp.get("account_number")
+            if pd.isna(emp_acct_id):
+                emp_acct_id = emp["entity_id"]
+            comp_acct_id = comp.get("account_number")
+            if pd.isna(comp_acct_id):
+                comp_acct_id = comp["entity_id"]
+
+            emp_acct = ProfileAccount(
+                id=emp_acct_id,
+                owner_id=emp["entity_id"],
+                owner_type="Person",
+                owner_name=emp.get("name", ""),
+                address=emp.get("address", "")
+            )
+            comp_acct = ProfileAccount(
+                id=comp_acct_id,
+                owner_id=comp.name,
+                owner_type="Company",
+                owner_name=comp.get("name", ""),
+                address=comp.get("address", "")
+            )
+
+            pay_start = pay_date.replace(hour=8, minute=0, second=0, microsecond=0)
+            pay_end = pay_date.replace(hour=16, minute=59, second=59, microsecond=0)
+            ts_dt = generate_transaction_timestamp(pay_start, pay_end, entity_type="Company")
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            txn_id = generate_uuid()
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=comp_acct,
+                tgt=emp_acct,
+                amount=round(amount, 2),
+                currency="USD",
+                payment_type="ach",
+                is_laundering=False,
+                known_accounts=known_accounts,
+                post_date=post_date
+            )
+            for e in entries:
+                if e["direction"] == "credit":
+                    e["source_description"] = f"ACH Direct Dep Payroll {comp_acct.owner_name} - {comp_acct.address}"
+                else:
+                    e["source_description"] = f"ACH Payroll {emp_acct.owner_name} - {emp_acct.id}"
+            transactions.extend(entries)
+
     # Batch deposit accumulated cash for merchants/companies
     for acct_id, amt in pending_deposits.items():
         merchant_row = merchants[merchants["account_number"] == acct_id]
@@ -308,6 +393,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             owner_type="Merchant",
             owner_name=merchant.get("name", ""),
             bank_name="",
+            address=merchant.get("address", "")
         )
 
         ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")
