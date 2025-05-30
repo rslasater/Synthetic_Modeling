@@ -59,6 +59,8 @@ python main.py --agent_profiles agents/agent_profiles.xlsx
 
 The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file.
 
+If the `Combined_Data` sheet includes an `employer` column linking each person to a company, the generator will also create twice-monthly payroll transactions. Payroll amounts average $5000 per employee with a ±10% variation and are scaled by the employer's `transaction_scaler` value. These ACH payments are dated on the first and third Monday of each month.
+
 ### BEnt Entities (ATMs/Tellers)
 `BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.
 

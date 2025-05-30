@@ -1,5 +1,6 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, date
+import calendar
 
 from utils.helpers import (
     generate_uuid,
@@ -25,6 +26,30 @@ class ProfileAccount:
         self.owner_type = owner_type
         self.owner_name = owner_name
         self.bank_name = bank_name
+
+
+def first_and_third_mondays(start_dt: datetime, end_dt: datetime) -> list[date]:
+    """Return all first and third Mondays between ``start_dt`` and ``end_dt``."""
+    dates = []
+    current = date(start_dt.year, start_dt.month, 1)
+    end_date = end_dt.date()
+    while current <= end_date:
+        c = calendar.Calendar()
+        mondays = [d for d in c.itermonthdates(current.year, current.month)
+                   if d.weekday() == 0 and d.month == current.month]
+        if mondays:
+            first = mondays[0]
+            third = mondays[2] if len(mondays) > 2 else None
+            if start_dt.date() <= first <= end_date:
+                dates.append(first)
+            if third and start_dt.date() <= third <= end_date:
+                dates.append(third)
+        # move to first day of next month
+        if current.month == 12:
+            current = date(current.year + 1, 1, 1)
+        else:
+            current = date(current.year, current.month + 1, 1)
+    return dates
 
 
 def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-01", end_date="2025-01-31", known_accounts=None):
@@ -128,6 +153,82 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
     return transactions
 
 
+def generate_payroll_transactions(profile_df: pd.DataFrame, start_dt: datetime, end_dt: datetime, known_accounts: set) -> list[dict]:
+    """Generate payroll ACH transactions from companies to employees."""
+    if "employer" not in profile_df.columns:
+        return []
+
+    employees = profile_df[(profile_df["type"] == "person") & profile_df["employer"].notna()]
+    companies = profile_df[profile_df["type"] == "company"].set_index("entity_id")
+    payroll_dates = first_and_third_mondays(start_dt, end_dt)
+
+    transactions = []
+
+    for _, emp in employees.iterrows():
+        employer_id = emp.get("employer")
+        if employer_id not in companies.index:
+            continue
+
+        employer = companies.loc[employer_id]
+
+        emp_acct_id = emp.get("account_number")
+        if pd.isna(emp_acct_id):
+            emp_acct_id = emp["entity_id"]
+        emp_acct = ProfileAccount(
+            id=emp_acct_id,
+            owner_id=emp["entity_id"],
+            owner_type="Person",
+            owner_name=emp.get("name", ""),
+        )
+
+        comp_acct_id = employer.get("account_number")
+        if pd.isna(comp_acct_id):
+            comp_acct_id = employer["entity_id"]
+        comp_acct = ProfileAccount(
+            id=comp_acct_id,
+            owner_id=employer["entity_id"],
+            owner_type="Company",
+            owner_name=employer.get("name", ""),
+        )
+
+        txn_scaler = float(employer.get("transaction_scaler") or 1)
+        base = 5000 * txn_scaler
+        amount = round(random.uniform(base * 0.9, base * 1.1), 2)
+
+        company_name = employer.get("name", "")
+        company_addr = str(employer.get("address", "")).replace("\n", ", ")
+        employee_name = emp.get("name", "")
+
+        for pay_date in payroll_dates:
+            ts_dt = datetime.combine(pay_date, datetime.min.time())
+            ts_dt = ts_dt.replace(hour=random.randint(8, 16), minute=random.randint(0, 59), second=random.randint(0, 59))
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            txn_id = generate_uuid()
+
+            desc = {
+                "credit": f"ACH Direct Dep Payroll {company_name} \u2013 {company_addr}",
+                "debit": f"ACH Payroll {employee_name} \u2013 {emp_acct_id}",
+            }
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=comp_acct,
+                tgt=emp_acct,
+                amount=amount,
+                currency="USD",
+                payment_type="ach",
+                is_laundering=False,
+                source_description=desc,
+                known_accounts=known_accounts,
+                post_date=post_date,
+            )
+            transactions.extend(entries)
+
+    return transactions
+
+
 def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end_date: str) -> list[dict]:
     """Generate transactions using structured agent profiles."""
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -146,6 +247,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
     pending_deposits: dict[str, float] = {}
 
     transactions = []
+    payroll_txns = generate_payroll_transactions(profile_df, start_dt, end_dt, known_accounts)
+    transactions.extend(payroll_txns)
 
     for _, payer in payers.iterrows():
         patterns = payer.get("merchant_patterns")

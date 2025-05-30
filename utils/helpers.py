@@ -73,6 +73,15 @@ def split_transaction(
     credit_description = f"{payment_type.upper()} - {recipient_name}"
     debit_description = f"{payment_type.upper()} - {recipient_name}"
 
+    if source_description:
+        if isinstance(source_description, dict):
+            debit_description = source_description.get("debit", debit_description)
+            credit_description = source_description.get("credit", credit_description)
+        elif isinstance(source_description, (list, tuple)) and len(source_description) == 2:
+            debit_description, credit_description = source_description
+        else:
+            debit_description = credit_description = str(source_description)
+
     if payment_type.lower() == "cash":
         # Use provided ATM/BEnt metadata if available
         if atm_id is None:
