@@ -27,7 +27,14 @@ class ProfileAccount:
         self.bank_name = bank_name
 
 
-def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-01", end_date="2025-01-31", known_accounts=None):
+def generate_legit_transactions(
+    accounts,
+    entities,
+    n=1000,
+    start_date="2025-01-01",
+    end_date="2025-01-31",
+    known_accounts=None,
+):
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
     known_accounts = set(known_accounts) if known_accounts else set()
@@ -44,7 +51,9 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
 
         # Randomly choose a primary account and its owning entity
         primary_acct = random.choice(accounts)
-        primary_entity = next((e for e in entities if e.id == primary_acct.owner_id), None)
+        primary_entity = next(
+            (e for e in entities if e.id == primary_acct.owner_id), None
+        )
         if not primary_entity:
             continue
 
@@ -69,7 +78,11 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
 
         # Determine src/tgt accounts based on payment type
         if payment_type.lower() == "cash":
-            deposit = purpose.lower() == "deposit" if purpose else random.choice([True, False])
+            deposit = (
+                purpose.lower() == "deposit"
+                if purpose
+                else random.choice([True, False])
+            )
             if deposit:
                 src = None
                 tgt = primary_acct
@@ -98,7 +111,10 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             if src.id not in known_accounts and tgt.id not in known_accounts:
                 skipped_known += 1
                 continue
-            if primary_entity.visibility not in ["sender", "both"] or tgt_entity.visibility not in ["receiver", "both"]:
+            if primary_entity.visibility not in [
+                "sender",
+                "both",
+            ] or tgt_entity.visibility not in ["receiver", "both"]:
                 skipped_visibility += 1
                 continue
 
@@ -113,7 +129,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             is_laundering=False,
             source_description=source_description,
             known_accounts=known_accounts,
-            post_date=post_date
+            post_date=post_date,
         )
 
         transactions.extend(entries)
@@ -128,7 +144,9 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
     return transactions
 
 
-def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end_date: str) -> list[dict]:
+def generate_profile_transactions(
+    profile_df: pd.DataFrame, start_date: str, end_date: str
+) -> list[dict]:
     """Generate transactions using structured agent profiles."""
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
@@ -137,6 +155,9 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
 
     merchants = profile_df[profile_df["type"] == "merchant"].copy()
     payers = profile_df[profile_df["type"].isin(["person", "company"])]
+    companies_df = profile_df[profile_df["type"] == "company"].set_index(
+        "entity_id", drop=False
+    )
     bent_df = profile_df[profile_df["type"] == "BEnt"]
     bents_by_bank = {
         str(bank): g[["name", "address"]].to_dict("records")
@@ -153,8 +174,8 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
         if not isinstance(patterns, str) or not isinstance(freqs, str):
             continue
 
-        pattern_list = [p.strip() for p in patterns.split(',') if p.strip()]
-        freq_list = [float(f.strip()) for f in freqs.split(',') if f.strip()]
+        pattern_list = [p.strip() for p in patterns.split(",") if p.strip()]
+        freq_list = [float(f.strip()) for f in freqs.split(",") if f.strip()]
         if not pattern_list or not freq_list:
             continue
 
@@ -166,7 +187,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             id=payer_acct_id,
             owner_id=payer["entity_id"],
             owner_type=payer["type"].capitalize(),
-            owner_name=payer.get("name", "")
+            owner_name=payer.get("name", ""),
         )
 
         for code, freq in zip(pattern_list, freq_list):
@@ -176,7 +197,17 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                 continue
             num_txns = max(1, int(round(freq_val)))
 
-            eligible = merchants[merchants["naics_code"].astype(str).str.startswith(str(int(float(code)) if code.strip().replace('.', '', 1).isdigit() else code))]
+            eligible = merchants[
+                merchants["naics_code"]
+                .astype(str)
+                .str.startswith(
+                    str(
+                        int(float(code))
+                        if code.strip().replace(".", "", 1).isdigit()
+                        else code
+                    )
+                )
+            ]
             if eligible.empty:
                 continue
 
@@ -189,12 +220,14 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                     id=tgt_acct_id,
                     owner_id=merchant["entity_id"],
                     owner_type="Merchant",
-                    owner_name=merchant.get("name", "")
+                    owner_name=merchant.get("name", ""),
                 )
 
                 pay_opts = merchant.get("accepted_payment_methods")
                 if isinstance(pay_opts, str) and pay_opts.strip():
-                    payment_types = [p.strip().lower() for p in pay_opts.split(',') if p.strip()]
+                    payment_types = [
+                        p.strip().lower() for p in pay_opts.split(",") if p.strip()
+                    ]
                 else:
                     payment_types = PAYMENT_TYPES
                 payment_type = random.choice(payment_types)
@@ -205,7 +238,9 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                 amount = random.uniform(avg_exp * 0.85, avg_exp * 1.15)
                 amount *= txn_scaler
 
-                ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type=payer_acct.owner_type)
+                ts_dt = generate_transaction_timestamp(
+                    start_dt, end_dt, entity_type=payer_acct.owner_type
+                )
                 timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
                 post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
                 txn_id = generate_uuid()
@@ -236,8 +271,7 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         known_accounts=known_accounts,
                         post_date=post_date,
                         atm_id=bent_id,
-                        atm_location=bent_loc
-
+                        atm_location=bent_loc,
                     )
                     transactions.extend(entries)
 
@@ -269,7 +303,9 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         )
                         transactions.extend(entries)
                     else:
-                        pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + amount
+                        pending_deposits[tgt_acct.id] = (
+                            pending_deposits.get(tgt_acct.id, 0) + amount
+                        )
                 else:
                     entries = split_transaction(
                         txn_id=txn_id,
@@ -280,9 +316,11 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         currency="USD",
                         payment_type=payment_type,
                         is_laundering=False,
-                        source_description=describe_transaction(payment_type, "Purchase"),
+                        source_description=describe_transaction(
+                            payment_type, "Purchase"
+                        ),
                         known_accounts=known_accounts,
-                        post_date=post_date
+                        post_date=post_date,
                     )
                     transactions.extend(entries)
 
@@ -327,7 +365,65 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             known_accounts=known_accounts,
             post_date=post_date,
             atm_id=bent_id,
-            atm_location=bent_loc
+            atm_location=bent_loc,
+        )
+        transactions.extend(entries)
+
+    # === Payroll Transactions ===
+    employees = profile_df[
+        (profile_df["type"] == "person") & profile_df["employer"].notna()
+    ]
+    for _, employee in employees.iterrows():
+        employer_id = str(employee["employer"])
+        if employer_id not in companies_df.index:
+            continue
+        company = companies_df.loc[employer_id]
+
+        comp_acct_id = company.get("account_number")
+        if pd.isna(comp_acct_id):
+            comp_acct_id = company["entity_id"]
+        comp_acct = ProfileAccount(
+            id=comp_acct_id,
+            owner_id=company["entity_id"],
+            owner_type="Company",
+            owner_name=company.get("name", ""),
+        )
+
+        emp_acct_id = employee.get("account_number")
+        if pd.isna(emp_acct_id):
+            emp_acct_id = employee["entity_id"]
+        emp_acct = ProfileAccount(
+            id=emp_acct_id,
+            owner_id=employee["entity_id"],
+            owner_type="Person",
+            owner_name=employee.get("name", ""),
+        )
+
+        level = str(employee.get("income_level", "")).lower()
+        if "high" in level:
+            amount = random.uniform(6000, 9000)
+        elif "medium" in level:
+            amount = random.uniform(3000, 6000)
+        else:
+            amount = random.uniform(1000, 3000)
+
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        txn_id = generate_uuid()
+
+        entries = split_transaction(
+            txn_id=txn_id,
+            timestamp=timestamp,
+            src=comp_acct,
+            tgt=emp_acct,
+            amount=round(amount, 2),
+            currency="USD",
+            payment_type="ach",
+            is_laundering=False,
+            source_description=describe_transaction("ach", "Payroll"),
+            known_accounts=known_accounts,
+            post_date=post_date,
         )
         transactions.extend(entries)
 
