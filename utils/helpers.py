@@ -59,19 +59,21 @@ def split_transaction(
     src_known = src is not None and hasattr(src, "id") and src.id in known_accounts
     tgt_known = tgt is not None and hasattr(tgt, "id") and tgt.id in known_accounts
 
-    # Dynamically name destination based on target account owner_type
-    if hasattr(tgt, "owner_type"):
-        if tgt.owner_type == "Person":
-            recipient_name = fake.name()
-        elif tgt.owner_type == "Company":
-            recipient_name = fake.company()
+    src_name = getattr(src, "owner_name", fake.name()) if src is not None else ""
+    tgt_name = getattr(tgt, "owner_name", None)
+    if not tgt_name:
+        if hasattr(tgt, "owner_type") and tgt.owner_type in ["Company", "Merchant"]:
+            tgt_name = fake.company()
         else:
-            recipient_name = fake.name()
-    else:
-        recipient_name = fake.name()
+            tgt_name = fake.name()
 
-    credit_description = f"{payment_type.upper()} - {recipient_name}"
-    debit_description = f"{payment_type.upper()} - {recipient_name}"
+    credit_description = f"{payment_type.upper()} - {tgt_name}"
+    debit_description = f"{payment_type.upper()} - {tgt_name}"
+
+    if payment_type.lower() == "ach" and src is not None and tgt is not None:
+        if src.owner_type == "Person" and tgt.owner_type in ["Company", "Merchant"]:
+            debit_description = f"ACH Transfer - {abs(amount):.2f} - {tgt_name}"
+            credit_description = f"ACH Transfer - {abs(amount):.2f} - {src_name}"
 
     if payment_type.lower() == "cash":
         # Use provided ATM/BEnt metadata if available
