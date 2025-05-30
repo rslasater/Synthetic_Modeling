@@ -51,8 +51,16 @@ def split_transaction(
     post_date=None,
     atm_id=None,
     atm_location=None,
+    debit_description=None,
+    credit_description=None,
 ):
-    """Split a transaction into debit and credit entries."""
+    """Split a transaction into debit and credit entries.
+
+    ``debit_description`` and ``credit_description`` allow callers to override
+    the default source descriptions for the debit and credit legs of the
+    transaction.  If not provided, generic descriptions are generated based on
+    ``payment_type`` and the target account owner.
+    """
     known_accounts = known_accounts or set()
     rows = []
 
@@ -70,8 +78,21 @@ def split_transaction(
     else:
         recipient_name = fake.name()
 
-    credit_description = f"{payment_type.upper()} - {recipient_name}"
-    debit_description = f"{payment_type.upper()} - {recipient_name}"
+    # Special handling for ACH person->business transfers
+    if payment_type.lower() == "ach" and src is not None and tgt is not None:
+        if src.owner_type == "Person" and tgt.owner_type == "Company":
+            if debit_description is None:
+                debit_description = f"ACH Transfer - {amount} - {tgt.owner_name}"
+            if credit_description is None:
+                credit_description = (
+                    f"ACH Transfer - {amount} - {src.owner_name}"
+                )
+
+    # Default descriptions unless explicitly provided
+    if credit_description is None:
+        credit_description = f"{payment_type.upper()} - {recipient_name}"
+    if debit_description is None:
+        debit_description = f"{payment_type.upper()} - {recipient_name}"
 
     if payment_type.lower() == "cash":
         # Use provided ATM/BEnt metadata if available

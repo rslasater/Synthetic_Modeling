@@ -1,5 +1,5 @@
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from utils.helpers import (
     generate_uuid,
@@ -147,6 +147,23 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
 
     transactions = []
 
+    def get_pay_dates(start_dt: datetime, end_dt: datetime) -> list[datetime]:
+        """Return first and third Monday dates between ``start_dt`` and ``end_dt``."""
+        dates = []
+        cur = start_dt.replace(day=1)
+        while cur <= end_dt:
+            first_monday = cur + timedelta(days=(0 - cur.weekday()) % 7)
+            third_monday = first_monday + timedelta(days=14)
+            for d in (first_monday, third_monday):
+                if start_dt <= d <= end_dt:
+                    dates.append(d)
+            # advance one month
+            if cur.month == 12:
+                cur = cur.replace(year=cur.year + 1, month=1)
+            else:
+                cur = cur.replace(month=cur.month + 1)
+        return dates
+
     for _, payer in payers.iterrows():
         patterns = payer.get("merchant_patterns")
         freqs = payer.get("merchant_frequency")
@@ -285,6 +302,71 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                         post_date=post_date
                     )
                     transactions.extend(entries)
+
+    # Payroll: companies pay employees on first and third Mondays
+    pay_dates = get_pay_dates(start_dt, end_dt)
+    people_df = profile_df[profile_df["type"] == "person"]
+    companies_df = profile_df[profile_df["type"] == "company"].set_index("entity_id")
+
+    for _, emp in people_df.dropna(subset=["employer"]).iterrows():
+        employer_id = str(emp["employer"])
+        if employer_id not in companies_df.index:
+            continue
+        company = companies_df.loc[employer_id]
+
+        emp_acct_id = emp.get("account_number")
+        if pd.isna(emp_acct_id):
+            emp_acct_id = emp["entity_id"]
+        emp_acct = ProfileAccount(
+            id=emp_acct_id,
+            owner_id=emp["entity_id"],
+            owner_type="Person",
+            owner_name=emp.get("name", ""),
+        )
+
+        comp_acct_id = company.get("account_number")
+        if pd.isna(comp_acct_id):
+            comp_acct_id = company["entity_id"]
+        comp_acct = ProfileAccount(
+            id=comp_acct_id,
+            owner_id=company["entity_id"],
+            owner_type="Company",
+            owner_name=company.get("name", ""),
+        )
+
+        txn_scaler = float(emp.get("transaction_scaler") or 1)
+        base_amt = 5000 * txn_scaler
+
+        company_address = str(company.get("address", "")).replace("\n", ", ")
+        employee_name = emp.get("name", "")
+        company_name = company.get("name", "")
+
+        for pay_dt in pay_dates:
+            ts_dt = pay_dt.replace(
+                hour=random.randint(8, 16),
+                minute=random.randint(0, 59),
+                second=random.randint(0, 59),
+            )
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            txn_id = generate_uuid()
+            amount = round(random.uniform(base_amt * 0.9, base_amt * 1.1), 2)
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=comp_acct,
+                tgt=emp_acct,
+                amount=amount,
+                currency="USD",
+                payment_type="ach",
+                is_laundering=False,
+                known_accounts=known_accounts,
+                post_date=post_date,
+                debit_description=f"ACH Payroll {employee_name} - {emp_acct.id}",
+                credit_description=f"ACH Direct Dep Payroll {company_name} - {company_address}",
+            )
+            transactions.extend(entries)
 
     # Batch deposit accumulated cash for merchants/companies
     for acct_id, amt in pending_deposits.items():
