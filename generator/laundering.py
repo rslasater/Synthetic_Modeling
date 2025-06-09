@@ -61,6 +61,12 @@ def generate_layering(origin_acct, intermediaries, start, end, known_accounts):
         payment_type = random.choice(["wire", "ach"])
         purpose = "Layering"
 
+        sd = (
+            describe_transaction(payment_type, purpose)
+            if payment_type.lower() != "ach"
+            else ""
+        )
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
@@ -70,7 +76,7 @@ def generate_layering(origin_acct, intermediaries, start, end, known_accounts):
             currency="USD",
             payment_type=payment_type,
             is_laundering=True,
-            source_description=describe_transaction(payment_type, purpose),
+            source_description=sd,
             known_accounts=known_accounts,
             post_date=post_date
         )
@@ -90,6 +96,12 @@ def generate_circular(origin_acct, intermediaries, start, end, known_accounts):
     payment_type = random.choice(["wire", "ach"])
     purpose = "Circular Flow"
 
+    sd = (
+        describe_transaction(payment_type, purpose)
+        if payment_type.lower() != "ach"
+        else ""
+    )
+
     entries = split_transaction(
         txn_id=txn_id,
         timestamp=timestamp,
@@ -99,7 +111,7 @@ def generate_circular(origin_acct, intermediaries, start, end, known_accounts):
         currency="USD",
         payment_type=payment_type,
         is_laundering=True,
-        source_description=describe_transaction(payment_type, purpose),
+        source_description=sd,
         known_accounts=known_accounts,
         post_date=post_date
     )
@@ -119,6 +131,12 @@ def generate_burst(origin_acct, start, end, known_accounts, n_bursts=5):
         purpose = "Burst Structuring"
         tgt_acct = origin_acct  # Self-directed for simplicity, or random partner
 
+        sd = (
+            describe_transaction(payment_type, purpose)
+            if payment_type.lower() != "ach"
+            else ""
+        )
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
@@ -128,7 +146,7 @@ def generate_burst(origin_acct, start, end, known_accounts, n_bursts=5):
             currency="USD",
             payment_type=payment_type,
             is_laundering=True,
-            source_description=describe_transaction(payment_type, purpose),
+            source_description=sd,
             known_accounts=known_accounts,
             post_date=post_date
         )

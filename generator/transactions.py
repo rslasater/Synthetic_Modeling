@@ -136,6 +136,8 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
                 skipped_visibility += 1
                 continue
 
+        sd = source_description if payment_type.lower() != "ach" else ""
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
@@ -145,7 +147,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             currency="USD",
             payment_type=payment_type,
             is_laundering=False,
-            source_description=source_description,
+            source_description=sd,
             known_accounts=known_accounts,
             post_date=post_date
         )
@@ -325,6 +327,12 @@ def generate_profile_transactions(
                     else:
                         pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + amount
                 else:
+                    sd = (
+                        describe_transaction(payment_type, "Purchase")
+                        if payment_type.lower() != "ach"
+                        else ""
+                    )
+
                     entries = split_transaction(
                         txn_id=txn_id,
                         timestamp=timestamp,
@@ -334,7 +342,7 @@ def generate_profile_transactions(
                         currency="USD",
                         payment_type=payment_type,
                         is_laundering=False,
-                        source_description=describe_transaction(payment_type, "Purchase"),
+                        source_description=sd,
                         known_accounts=known_accounts,
                         post_date=post_date
                     )

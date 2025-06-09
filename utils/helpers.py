@@ -71,8 +71,8 @@ def split_transaction(
         else:
             tgt_name = fake.name()
 
-    credit_description = f"{payment_type.upper()} - {tgt_name}"
-    debit_description = f"{payment_type.upper()} - {tgt_name}"
+    credit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
+    debit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     wire_details = None
 
     if payment_type.lower() == "wire":
@@ -92,9 +92,16 @@ def split_transaction(
             wire_details["exchange_rate"] = round(random.uniform(0.8, 1.2), 4)
 
     if payment_type.lower() == "ach" and src is not None and tgt is not None:
-        if src.owner_type == "Person" and tgt.owner_type in ["Company", "Merchant"]:
-            debit_description = f"ACH Transfer - {abs(amount):.2f} - {tgt_name}"
-            credit_description = f"ACH Transfer - {abs(amount):.2f} - {src_name}"
+        sec_code = "PPD"
+        if src.owner_type == "Company" and tgt.owner_type in ["Company", "Merchant"]:
+            sec_code = "CCD"
+
+        debit_description = (
+            f"ACH Debit - Bill Payment, {tgt_name}, SEC-Code: {sec_code}, Settled"
+        )
+        credit_description = (
+            f"ACH Credit - Originator: {src_name}, SEC-Code: {sec_code}, Settled"
+        )
 
     if payment_type.lower() == "cash":
         amount = round_cash_amount(amount)
