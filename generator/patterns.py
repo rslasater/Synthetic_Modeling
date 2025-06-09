@@ -202,6 +202,12 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
         payment_type = random.choice(safe_payment_types)
 
+        sd = (
+            describe_transaction(payment_type, "Fan-in Structuring")
+            if payment_type.lower() != "ach"
+            else ""
+        )
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
@@ -211,7 +217,7 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
             currency=currency,
             payment_type=payment_type,
             is_laundering=True,
-            source_description=describe_transaction(payment_type, "Fan-in Structuring"),
+            source_description=sd,
             known_accounts=known_accounts,
             post_date=post_date
         )
