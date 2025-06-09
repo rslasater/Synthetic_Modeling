@@ -71,8 +71,8 @@ def split_transaction(
         else:
             tgt_name = fake.name()
 
-    credit_description = f"{payment_type.upper()} - {tgt_name}"
-    debit_description = f"{payment_type.upper()} - {tgt_name}"
+    credit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
+    debit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     wire_details = None
 
     if payment_type.lower() == "wire":
