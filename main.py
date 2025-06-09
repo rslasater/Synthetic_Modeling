@@ -33,7 +33,12 @@ def main():
     args = parser.parse_args()
 
     log("🔧 Generating entities...")
-    entities_data = generate_entities(n_banks=args.banks, n_individuals=args.individuals, n_companies=args.companies)
+    entities_data = generate_entities(
+        n_banks=args.banks,
+        n_individuals=args.individuals,
+        n_companies=args.companies,
+        profile_path=args.agent_profiles,
+    )
     accounts = entities_data["accounts"]
     entities = entities_data["entities"]
 
