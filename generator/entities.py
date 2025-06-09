@@ -1,5 +1,7 @@
 import random
 import uuid
+import os
+import pandas as pd
 from faker import Faker
 
 faker = Faker()
@@ -11,14 +13,18 @@ VISIBILITY_OPTIONS = ["sender", "receiver", "both"]
 
 # === Entity Types ===
 class Bank:
-    def __init__(self, name):
+    def __init__(self, name, code=None, swift_code="", aba_routing_number=""):
         self.id = str(uuid.uuid4())[:8]
         self.name = name
-        self.code = str(random.randint(100, 999))
+        self.code = str(code) if code is not None else str(random.randint(100, 999))
+        # Wire metadata comes from profile data if available
+        self.swift_code = swift_code
+        self.aba_routing_number = aba_routing_number
 
 class Account:
     def __init__(self, owner_id, owner_type, bank_id, currency="USD", bank_code="000",
-                 owner_name=None, bank_name=None):
+                 owner_name=None, bank_name=None, country="United States",
+                 swift_code=None, routing_number=None):
         serial = random.randint(10**8, 10**9 - 1)
         self.id = f"{bank_code}{serial}"
         self.owner_id = owner_id
@@ -29,6 +35,9 @@ class Account:
         # Optional context for downstream transaction rows
         self.owner_name = owner_name
         self.bank_name = bank_name
+        self.country = country
+        self.swift_code = swift_code
+        self.routing_number = routing_number
 
 # === Base Entity ===
 class Entity:
@@ -38,6 +47,8 @@ class Entity:
         self.address = faker.address()
         self.phone = faker.phone_number()
         self.bank = None  # Assigned via account generation
+        # Majority of entities are US based
+        self.country = "United States" if random.random() < 0.8 else faker.country()
         self.launderer = random.choice([True, False])
         self.visibility = random.choices(
             VISIBILITY_OPTIONS,
@@ -77,7 +88,30 @@ class Company(Entity):
         }
 
 # === Generators ===
-def create_banks(n=3):
+def create_banks(n=3, profiles_path=None):
+    """Create ``Bank`` objects.
+
+    If ``profiles_path`` is provided and points to an Excel file with a
+    ``banks`` sheet, use that metadata (including SWIFT and routing numbers).
+    Otherwise fall back to simple placeholder banks without wire details.
+    """
+    if profiles_path and os.path.exists(profiles_path):
+        try:
+            banks_df = pd.read_excel(profiles_path, sheet_name="banks")
+            if not banks_df.empty:
+                sample_df = banks_df.sample(min(n, len(banks_df)))
+                return [
+                    Bank(
+                        name=row.get("name", ""),
+                        code=row.get("bank"),
+                        swift_code=row.get("swift_code", ""),
+                        aba_routing_number=str(row.get("aba_routing_number", "")),
+                    )
+                    for _, row in sample_df.iterrows()
+                ]
+        except Exception:
+            pass
+
     names = random.sample(BANK_NAMES, min(n, len(BANK_NAMES)))
     return [Bank(name=name) for name in names]
 
@@ -100,15 +134,18 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 currency=random.choice(CURRENCIES),
                 bank_code=bank.code,
                 owner_name=entity.name,
-                bank_name=bank.name
+                bank_name=bank.name,
+                country=entity.country,
+                swift_code=bank.swift_code,
+                routing_number=bank.aba_routing_number
             )
             entity.accounts.append(account)
             all_accounts.append(account)
     return all_accounts
 
 # === Top-level function ===
-def generate_entities(n_banks=3, n_individuals=10, n_companies=5):
-    banks = create_banks(n_banks)
+def generate_entities(n_banks=3, n_individuals=10, n_companies=5, profile_path=None):
+    banks = create_banks(n_banks, profiles_path=profile_path)
     individuals = create_individuals(n_individuals)
     companies = create_companies(n_companies)
     all_entities = individuals + companies
