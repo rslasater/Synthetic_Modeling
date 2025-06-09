@@ -37,6 +37,10 @@ def to_datetime(value):
     else:
         raise TypeError(f"Unsupported type for to_datetime: {type(value)}")
 
+def round_cash_amount(amount: float) -> int:
+    """Round a cash amount to the nearest $20 as an integer."""
+    return int(round(float(amount) / 20.0)) * 20
+
 def split_transaction(
     txn_id,
     timestamp,
@@ -76,6 +80,7 @@ def split_transaction(
             credit_description = f"ACH Transfer - {abs(amount):.2f} - {src_name}"
 
     if payment_type.lower() == "cash":
+        amount = round_cash_amount(amount)
         # Use provided ATM/BEnt metadata if available
         if atm_id is None:
             atm_id = generate_uuid(8)

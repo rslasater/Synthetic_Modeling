@@ -10,6 +10,7 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - Simulate common laundering patterns such as fan-out, cycles, and scatter-gather.
 - Label laundering transactions for easy classification.
 - Export clean `.csv` or `.xlsx` files for Excel.
+- ATM cash transactions are rounded to the nearest $20.
 
 ---
 
