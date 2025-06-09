@@ -19,13 +19,27 @@ PAYMENT_TYPES = ["wire", "credit_card", "ach", "check", "cash"]
 class ProfileAccount:
     """Lightweight account object used for profile-driven transactions."""
 
-    def __init__(self, id, owner_id, owner_type, owner_name="", bank_name="", address=""):
+    def __init__(
+        self,
+        id,
+        owner_id,
+        owner_type,
+        owner_name="",
+        bank_name="",
+        address="",
+        swift_code=None,
+        routing_number=None,
+        country="United States",
+    ):
         self.id = str(id)
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.owner_name = owner_name
         self.bank_name = bank_name
         self.address = address
+        self.swift_code = swift_code
+        self.routing_number = routing_number
+        self.country = country
 
 
 def get_payroll_dates(start_dt: datetime, end_dt: datetime) -> list[datetime]:
@@ -148,7 +162,12 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
     return transactions
 
 
-def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end_date: str) -> list[dict]:
+def generate_profile_transactions(
+    profile_df: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+    bank_lookup: dict | None = None,
+) -> list[dict]:
     """Generate transactions using structured agent profiles."""
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
@@ -182,12 +201,19 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
         payer_acct_id = payer.get("account_number")
         if pd.isna(payer_acct_id):
             payer_acct_id = payer["entity_id"]
+
+        payer_bank_code = str(payer.get("bank"))
+        bank_data = bank_lookup.get(payer_bank_code, {}) if bank_lookup else {}
+
         payer_acct = ProfileAccount(
             id=payer_acct_id,
             owner_id=payer["entity_id"],
             owner_type=payer["type"].capitalize(),
             owner_name=payer.get("name", ""),
-            address=payer.get("address", "")
+            bank_name=bank_data.get("name", ""),
+            address=payer.get("address", ""),
+            swift_code=bank_data.get("swift_code"),
+            routing_number=bank_data.get("routing_number"),
         )
 
         for code, freq in zip(pattern_list, freq_list):
@@ -206,12 +232,18 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
                 tgt_acct_id = merchant.get("account_number")
                 if pd.isna(tgt_acct_id):
                     tgt_acct_id = merchant["entity_id"]
+                merch_bank_code = str(merchant.get("bank"))
+                m_bank_data = bank_lookup.get(merch_bank_code, {}) if bank_lookup else {}
+
                 tgt_acct = ProfileAccount(
                     id=tgt_acct_id,
                     owner_id=merchant["entity_id"],
                     owner_type="Merchant",
                     owner_name=merchant.get("name", ""),
-                    address=merchant.get("address", "")
+                    bank_name=m_bank_data.get("name", ""),
+                    address=merchant.get("address", ""),
+                    swift_code=m_bank_data.get("swift_code"),
+                    routing_number=m_bank_data.get("routing_number"),
                 )
 
                 pay_opts = merchant.get("accepted_payment_methods")
@@ -330,19 +362,30 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             if pd.isna(comp_acct_id):
                 comp_acct_id = comp["entity_id"]
 
+            emp_bank_code = str(emp.get("bank"))
+            emp_bank = bank_lookup.get(emp_bank_code, {}) if bank_lookup else {}
+            comp_bank_code = str(comp.get("bank"))
+            comp_bank = bank_lookup.get(comp_bank_code, {}) if bank_lookup else {}
+
             emp_acct = ProfileAccount(
                 id=emp_acct_id,
                 owner_id=emp["entity_id"],
                 owner_type="Person",
                 owner_name=emp.get("name", ""),
-                address=emp.get("address", "")
+                bank_name=emp_bank.get("name", ""),
+                address=emp.get("address", ""),
+                swift_code=emp_bank.get("swift_code"),
+                routing_number=emp_bank.get("routing_number"),
             )
             comp_acct = ProfileAccount(
                 id=comp_acct_id,
                 owner_id=comp.name,
                 owner_type="Company",
                 owner_name=comp.get("name", ""),
-                address=comp.get("address", "")
+                bank_name=comp_bank.get("name", ""),
+                address=comp.get("address", ""),
+                swift_code=comp_bank.get("swift_code"),
+                routing_number=comp_bank.get("routing_number"),
             )
 
             pay_start = pay_date.replace(hour=8, minute=0, second=0, microsecond=0)
@@ -387,13 +430,17 @@ def generate_profile_transactions(profile_df: pd.DataFrame, start_date: str, end
             bent_id = generate_uuid(8)
             bent_loc = fake.address().replace("\n", ", ")
 
+        merch_bank_data = bank_lookup.get(merch_bank, {}) if bank_lookup else {}
+
         tgt_acct = ProfileAccount(
             id=acct_id,
             owner_id=merchant["entity_id"],
             owner_type="Merchant",
             owner_name=merchant.get("name", ""),
-            bank_name="",
-            address=merchant.get("address", "")
+            bank_name=merch_bank_data.get("name", ""),
+            address=merchant.get("address", ""),
+            swift_code=merch_bank_data.get("swift_code"),
+            routing_number=merch_bank_data.get("routing_number"),
         )
 
         ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")

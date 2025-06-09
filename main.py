@@ -53,10 +53,19 @@ def main():
     if args.agent_profiles:
         log(f"📂 Loading agent profiles from {args.agent_profiles}")
         profile_df = pd.read_excel(args.agent_profiles, sheet_name="Combined_Data")
+        bank_lookup = {
+            str(b.code): {
+                "name": b.name,
+                "swift_code": b.swift_code,
+                "routing_number": b.aba_routing_number,
+            }
+            for b in entities_data["banks"]
+        }
         legit_txns = generate_profile_transactions(
             profile_df=profile_df,
             start_date=args.start_date,
             end_date=args.end_date,
+            bank_lookup=bank_lookup,
         )
         log(f"✅ Profile-based transactions generated: {len(legit_txns)}")
     else:
