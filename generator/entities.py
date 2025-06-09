@@ -15,10 +15,14 @@ class Bank:
         self.id = str(uuid.uuid4())[:8]
         self.name = name
         self.code = str(random.randint(100, 999))
+        # Add wire metadata
+        self.swift_code = faker.swift(length=8)
+        self.aba_routing_number = faker.aba()
 
 class Account:
     def __init__(self, owner_id, owner_type, bank_id, currency="USD", bank_code="000",
-                 owner_name=None, bank_name=None):
+                 owner_name=None, bank_name=None, country="United States",
+                 swift_code=None, routing_number=None):
         serial = random.randint(10**8, 10**9 - 1)
         self.id = f"{bank_code}{serial}"
         self.owner_id = owner_id
@@ -29,6 +33,9 @@ class Account:
         # Optional context for downstream transaction rows
         self.owner_name = owner_name
         self.bank_name = bank_name
+        self.country = country
+        self.swift_code = swift_code
+        self.routing_number = routing_number
 
 # === Base Entity ===
 class Entity:
@@ -38,6 +45,8 @@ class Entity:
         self.address = faker.address()
         self.phone = faker.phone_number()
         self.bank = None  # Assigned via account generation
+        # Majority of entities are US based
+        self.country = "United States" if random.random() < 0.8 else faker.country()
         self.launderer = random.choice([True, False])
         self.visibility = random.choices(
             VISIBILITY_OPTIONS,
@@ -100,7 +109,10 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 currency=random.choice(CURRENCIES),
                 bank_code=bank.code,
                 owner_name=entity.name,
-                bank_name=bank.name
+                bank_name=bank.name,
+                country=entity.country,
+                swift_code=bank.swift_code,
+                routing_number=bank.aba_routing_number
             )
             entity.accounts.append(account)
             all_accounts.append(account)

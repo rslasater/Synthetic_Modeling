@@ -73,6 +73,23 @@ def split_transaction(
 
     credit_description = f"{payment_type.upper()} - {tgt_name}"
     debit_description = f"{payment_type.upper()} - {tgt_name}"
+    wire_details = None
+
+    if payment_type.lower() == "wire":
+        debit_description = credit_description = (
+            f"WIRE - Originator: {src_name} Beneficiary: {tgt_name}"
+        )
+        is_international = (
+            (src is not None and getattr(src, "country", "United States") != "United States")
+            or (tgt is not None and getattr(tgt, "country", "United States") != "United States")
+        )
+        wire_details = {
+            "swift_code": getattr(src, "swift_code", ""),
+            "routing_number": getattr(src, "routing_number", ""),
+            "is_international": is_international,
+        }
+        if is_international:
+            wire_details["exchange_rate"] = round(random.uniform(0.8, 1.2), 4)
 
     if payment_type.lower() == "ach" and src is not None and tgt is not None:
         if src.owner_type == "Person" and tgt.owner_type in ["Company", "Merchant"]:
@@ -113,7 +130,8 @@ def split_transaction(
                     "source_description": credit_description,
                     "post_date": post_date,
                     "atm_id": atm_id,
-                    "atm_location": atm_location
+                    "atm_location": atm_location,
+                    "wire_details": wire_details
                 })
             return rows
 
@@ -136,7 +154,8 @@ def split_transaction(
                     "source_description": debit_description,
                     "post_date": post_date,
                     "atm_id": atm_id,
-                    "atm_location": atm_location
+                    "atm_location": atm_location,
+                    "wire_details": wire_details
                 })
             return rows
 
@@ -158,7 +177,8 @@ def split_transaction(
                 "source_description": debit_description,
                 "post_date": post_date,
                 "atm_id": atm_id,
-                "atm_location": atm_location
+                "atm_location": atm_location,
+                "wire_details": wire_details
             })
 
         if tgt_known:
@@ -178,7 +198,8 @@ def split_transaction(
                 "source_description": credit_description,
                 "post_date": post_date,
                 "atm_id": atm_id,
-                "atm_location": atm_location
+                "atm_location": atm_location,
+                "wire_details": wire_details
             })
 
         return rows
@@ -199,7 +220,8 @@ def split_transaction(
             "payment_type": payment_type,
             "is_laundering": is_laundering,
             "source_description": debit_description,
-            "post_date": post_date
+            "post_date": post_date,
+            "wire_details": wire_details
         })
 
     if tgt_known:
@@ -217,7 +239,27 @@ def split_transaction(
             "payment_type": payment_type,
             "is_laundering": is_laundering,
             "source_description": credit_description,
-            "post_date": post_date
+            "post_date": post_date,
+            "wire_details": wire_details
+        })
+
+    if payment_type.lower() == "wire" and src_known:
+        rows.append({
+            "transaction_id": txn_id,
+            "entry_id": txn_id + "-F",
+            "timestamp": timestamp,
+            "account_id": src.id,
+            "counterparty": "",
+            "amount": -25.0,
+            "direction": "debit",
+            "currency": currency,
+            "bank_name": src.bank_name,
+            "owner_name": src.owner_name,
+            "payment_type": "fee",
+            "is_laundering": is_laundering,
+            "source_description": "Wire Transfer Fee",
+            "post_date": post_date,
+            "wire_details": None
         })
 
     print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id if tgt else 'CASH'}, src_known: {src_known}, tgt_known: {tgt_known}")
