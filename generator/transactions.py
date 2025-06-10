@@ -8,6 +8,7 @@ from utils.helpers import (
     to_datetime,
     split_transaction,
     describe_transaction,
+    suggest_transaction_type,
     fake,
 )
 import pandas as pd
@@ -327,8 +328,11 @@ def generate_profile_transactions(
                     else:
                         pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + amount
                 else:
+                    purpose = suggest_transaction_type(
+                        merchant.get("naics_code"), payer.get("type")
+                    )
                     sd = (
-                        describe_transaction(payment_type, "Purchase")
+                        describe_transaction(payment_type, purpose)
                         if payment_type.lower() != "ach"
                         else ""
                     )
