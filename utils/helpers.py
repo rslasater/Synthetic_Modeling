@@ -23,6 +23,41 @@ def safe_sample(population, k):
     """Safely sample k items from a list, even if the list is smaller than k."""
     return random.sample(population, min(k, len(population)))
 
+def suggest_transaction_type(naics_code: str | int | None, payor_type: str | None) -> str:
+    """Return a suggested transaction purpose based on ``naics_code`` and payer type.
+
+    This lightweight NLP-style helper maps broad NAICS code prefixes to human
+    readable purchase categories.  It distinguishes between personal and
+    business spending so the generated ``source_description`` can be more
+    contextual.
+
+    Parameters
+    ----------
+    naics_code : str | int | None
+        The merchant NAICS classification.  Only the leading digits are used.
+    payor_type : str | None
+        Either ``"person"`` or ``"company"`` to indicate who is making the
+        purchase.
+    """
+
+    code = str(naics_code or "")
+    ptype = (payor_type or "person").lower()
+
+    mapping = [
+        (("722",), "Restaurant Meal"),
+        (("445",), "Grocery Purchase"),
+        (("44", "45"), "Retail Purchase"),
+        (("611",), "Educational Service"),
+        (("62",), "Medical Payment"),
+        (("52",), "Financial Service Fee"),
+    ]
+
+    for prefixes, desc in mapping:
+        if any(code.startswith(p) for p in prefixes):
+            return desc if ptype == "person" else f"{desc} Expense"
+
+    return "Business Expense" if ptype == "company" else "Personal Expense"
+
 def to_datetime(value):
     """
     Convert a value to a datetime object.
