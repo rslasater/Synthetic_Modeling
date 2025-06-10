@@ -5,6 +5,20 @@ from faker import Faker
 
 fake = Faker()
 
+# Track sequential check numbers per payor
+_check_number_registry: dict[str, int] = {}
+
+
+def next_check_number(payor_id: str) -> int:
+    """Return the next check number for the given payor."""
+    last = _check_number_registry.get(payor_id)
+    if last is None:
+        check_no = random.randint(1000, 9999)
+    else:
+        check_no = last + 1
+    _check_number_registry[payor_id] = check_no
+    return check_no
+
 def generate_uuid(length=12):
     """Generate a short unique ID (default 12 characters)."""
     return str(uuid.uuid4()).replace('-', '')[:length]
@@ -74,6 +88,26 @@ def split_transaction(
     credit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     debit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     wire_details = None
+
+    if payment_type.lower() == "check" and src is not None and tgt is not None:
+        check_num = next_check_number(src.id)
+        txn_type = ""
+        if source_description:
+            descr = source_description
+            if descr.lower().startswith("check -"):
+                descr = descr.split("-", 1)[1].strip()
+            if "written by" in descr:
+                txn_type = descr.split("written by", 1)[0].strip()
+            else:
+                txn_type = descr.strip()
+
+        debit_description = f"Check - {tgt_name}, {check_num}"
+        credit_description = f"Check - {src_name}, {src.id}, {getattr(src, 'routing_number', '')}"
+        if txn_type:
+            debit_description += f", {txn_type}"
+            credit_description += f", {txn_type}"
+        debit_description += ", Settled"
+        credit_description += ", Settled"
 
     if payment_type.lower() == "wire":
         debit_description = credit_description = (
