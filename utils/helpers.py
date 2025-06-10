@@ -24,40 +24,41 @@ def safe_sample(population, k):
     return random.sample(population, min(k, len(population)))
 
 def suggest_transaction_type(naics_code: str | int | None, payor_type: str | None) -> str:
-    """Return a suggested transaction purpose based on ``naics_code`` and payer type.
-
-    This lightweight NLP-style helper maps broad NAICS code prefixes to human
-    readable purchase categories.  It distinguishes between personal and
-    business spending so the generated ``source_description`` can be more
-    contextual.
-
-    Parameters
-    ----------
-    naics_code : str | int | None
-        The merchant NAICS classification.  Only the leading digits are used.
-    payor_type : str | None
-        Either ``"person"`` or ``"company"`` to indicate who is making the
-        purchase.
+    """Return a suggested transaction purpose based on ``naics_code``.
+    
+    This helper maps broad NAICS code prefixes to human readable purchase categories.
     """
-
     code = str(naics_code or "")
-    ptype = (payor_type or "person").lower()
 
     mapping = [
+        (("11",), ["Agricultural Purchase", "Farm Supply", "Crop Service"]),
+        (("21",), ["Mining Service", "Resource Extraction", "Mineral Purchase"]),
+        (("22",), ["Utility Payment", "Utility Service"]),
+        (("23",), ["Construction Service", "Building Project", "Renovation"]),
+        (("31", "32", "33"), ["Manufacturing Purchase", "Industrial Goods", "Factory Service"]),
+        (("42",), ["Wholesale Purchase", "Bulk Goods", "Wholesale Distribution"]),
         (("722",), ["Restaurant Meal", "Dining Out", "Food Service"]),
         (("445",), ["Grocery Purchase", "Food Shopping", "Supermarket Visit"]),
         (("44", "45"), ["Retail Purchase", "Shopping Trip", "Retail Goods"]),
         (("611",), ["Educational Service", "Tuition Payment", "Course Enrollment"]),
         (("62",), ["Medical Payment", "Healthcare Expense", "Medical Service"]),
         (("52",), ["Financial Service Fee", "Banking Charge"]),
+        (("53",), ["Real Estate Payment", "Property Management Fee"]),
+        (("54",), ["Professional Service Fee", "Consulting Expense"]),
+        (("56",), ["Administrative Service", "Office Expense"]),
+        (("61",), ["Educational Expense", "Training Course"]),
+        (("71",), ["Entertainment Expense", "Leisure Activity"]),
+        (("72",), ["Travel Expense", "Lodging Cost"]),
+        (("81",), ["Repair Service", "Maintenance Cost"]),
+        (("92",), ["Public Administration Fee", "Government Service"]),
+        (("99",), ["Miscellaneous Expense", "Other Services"]),
     ]
 
     for prefixes, options in mapping:
         if any(code.startswith(p) for p in prefixes):
-            desc = random.choice(options)
-            return desc if ptype == "person" else f"{desc} Expense"
+            return random.choice(options)
 
-    return "Business Expense" if ptype == "company" else "Personal Expense"
+    return "Expense"
 
 def to_datetime(value):
     """
