@@ -87,8 +87,6 @@ class Person(Entity):
         return {
             "ACH": ["Payroll", "Expense Reimbursement", "Loan", "Rent/Lease"],
             "Wire": ["Vendor/Supplier"],
-            "Credit Card": ["Vendor/Supplier"],
-            "Debit Card": ["Vendor/Supplier"],
             "POS": ["Vendor/Supplier"],
             "Cash": ["Deposit", "Withdrawal"]
         }
@@ -111,8 +109,6 @@ class Company(Entity):
             "ACH": ["Payroll", "Vendor/Supplier", "Expense Reimbursement", "Intercompany", "Loan", "Rent/Lease"],
             "Wire": ["Vendor/Supplier", "Intercompany", "Rent/Lease"],
             "Check": ["Expense Reimbursement", "Vendor/Supplier", "Miscellaneous"],
-            "Credit Card": ["Vendor/Supplier"],
-            "Debit Card": ["Vendor/Supplier"],
             "POS": ["Vendor/Supplier"],
             "Cash": ["Deposit", "Withdrawal"]
         }

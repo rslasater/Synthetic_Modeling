@@ -139,9 +139,11 @@ def split_transaction(
 
     # Custom descriptions for card/POS transactions
     pt_lower = payment_type.lower().replace("_", " ")
-    if pt_lower in ["credit card", "debit card", "pos"] and src is not None and tgt is not None:
+    card_aliases = {"credit card", "ccard", "credit"}
+    debit_aliases = {"debit card", "debit"}
+    if pt_lower in card_aliases | debit_aliases | {"pos"} and src is not None and tgt is not None:
         card_num = getattr(src, "credit_card_number", None)
-        if pt_lower == "debit card":
+        if pt_lower in debit_aliases:
             card_num = getattr(src, "debit_card_number", card_num)
         date_str = timestamp.split(" ")[0]
         method = getattr(tgt, "receiving_method", "")

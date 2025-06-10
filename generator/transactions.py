@@ -17,8 +17,6 @@ import pandas as pd
 # Common payment types
 PAYMENT_TYPES = [
     "wire",
-    "credit_card",
-    "debit_card",
     "pos",
     "ach",
     "check",
@@ -293,7 +291,13 @@ def generate_profile_transactions(
 
                 pay_opts = merchant.get("accepted_payment_methods")
                 if isinstance(pay_opts, str) and pay_opts.strip():
-                    payment_types = [p.strip().lower() for p in pay_opts.split(',') if p.strip()]
+                    raw_types = [p.strip().lower() for p in pay_opts.split(',') if p.strip()]
+                    payment_types = []
+                    for pt in raw_types:
+                        if pt == "c_check":
+                            payment_types.append("check")
+                        else:
+                            payment_types.append(pt)
                 else:
                     payment_types = PAYMENT_TYPES
                 payment_type = random.choice(payment_types)
