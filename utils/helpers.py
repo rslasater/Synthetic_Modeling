@@ -23,12 +23,15 @@ def generate_uuid(length=12):
     return str(uuid.uuid4()).replace('-', '')[:length]
 
 def generate_card_number() -> str:
-    """Return a random Visa or MasterCard number formatted as
-    VS#### #### #### #### or MC#### #### #### ####."""
+    """Return a masked Visa or MasterCard number.
+
+    The number is formatted as ``VSXXXX XXXX XXXX ####`` or
+    ``MCXXXX XXXX XXXX ####`` where only the last four digits are
+    randomly generated.
+    """
     brand = random.choice(["VS", "MC"])
-    digits = "".join(str(random.randint(0, 9)) for _ in range(16))
-    formatted = f"{digits[:4]} {digits[4:8]} {digits[8:12]} {digits[12:]}"
-    return f"{brand}{formatted}"
+    last4 = "".join(str(random.randint(0, 9)) for _ in range(4))
+    return f"{brand}XXXX XXXX XXXX {last4}"
 
 def parse_date(date_str):
     """Parse a date string like '2025-01-01' into a datetime object."""

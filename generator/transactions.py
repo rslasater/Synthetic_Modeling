@@ -209,8 +209,7 @@ def generate_profile_transactions(
             }
         if ent_type in ["company", "merchant"]:
             methods = str(row.get("accepted_payment_methods") or "").lower()
-            has_pos = "pos" in methods or "ccard" in methods
-            if has_pos:
+            if "pos" in methods:
                 recv_methods[ent_id] = random.choice(["Stripe", "Square", "POS"])
             else:
                 recv_methods[ent_id] = random.choice([
