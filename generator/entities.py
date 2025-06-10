@@ -3,6 +3,7 @@ import uuid
 import os
 import pandas as pd
 from faker import Faker
+from utils.helpers import generate_card_number
 
 faker = Faker()
 
@@ -22,9 +23,22 @@ class Bank:
         self.aba_routing_number = aba_routing_number
 
 class Account:
-    def __init__(self, owner_id, owner_type, bank_id, currency="USD", bank_code="000",
-                 owner_name=None, bank_name=None, country="United States",
-                 swift_code=None, routing_number=None):
+    def __init__(
+        self,
+        owner_id,
+        owner_type,
+        bank_id,
+        currency="USD",
+        bank_code="000",
+        owner_name=None,
+        bank_name=None,
+        country="United States",
+        swift_code=None,
+        routing_number=None,
+        credit_card_number=None,
+        debit_card_number=None,
+        receiving_method=None,
+    ):
         serial = random.randint(10**8, 10**9 - 1)
         self.id = f"{bank_code}{serial}"
         self.owner_id = owner_id
@@ -38,6 +52,9 @@ class Account:
         self.country = country
         self.swift_code = swift_code
         self.routing_number = routing_number
+        self.credit_card_number = credit_card_number
+        self.debit_card_number = debit_card_number
+        self.receiving_method = receiving_method
 
 # === Base Entity ===
 class Entity:
@@ -63,12 +80,14 @@ class Person(Entity):
     def __init__(self):
         super().__init__()
         self.name = faker.name()
+        self.credit_card_number = generate_card_number()
+        self.debit_card_number = generate_card_number()
 
     def get_allowed_transactions(self):
         return {
             "ACH": ["Payroll", "Expense Reimbursement", "Loan", "Rent/Lease"],
             "Wire": ["Vendor/Supplier"],
-            "Credit Card": ["Vendor/Supplier"],
+            "POS": ["Vendor/Supplier"],
             "Cash": ["Deposit", "Withdrawal"]
         }
 
@@ -77,13 +96,20 @@ class Company(Entity):
     def __init__(self):
         super().__init__()
         self.name = faker.company()
+        self.credit_card_number = generate_card_number()
+        self.debit_card_number = generate_card_number()
+        self.receiving_method = random.choice([
+            "CARD PAYMENT",
+            "ONLINE PAYMENT",
+            "PHONE PAYMENT AUTHORIZED",
+        ])
 
     def get_allowed_transactions(self):
         return {
             "ACH": ["Payroll", "Vendor/Supplier", "Expense Reimbursement", "Intercompany", "Loan", "Rent/Lease"],
             "Wire": ["Vendor/Supplier", "Intercompany", "Rent/Lease"],
             "Check": ["Expense Reimbursement", "Vendor/Supplier", "Miscellaneous"],
-            "Credit Card": ["Vendor/Supplier"],
+            "POS": ["Vendor/Supplier"],
             "Cash": ["Deposit", "Withdrawal"]
         }
 
@@ -137,7 +163,10 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 bank_name=bank.name,
                 country=entity.country,
                 swift_code=bank.swift_code,
-                routing_number=bank.aba_routing_number
+                routing_number=bank.aba_routing_number,
+                credit_card_number=getattr(entity, "credit_card_number", None),
+                debit_card_number=getattr(entity, "debit_card_number", None),
+                receiving_method=getattr(entity, "receiving_method", None)
             )
             entity.accounts.append(account)
             all_accounts.append(account)
