@@ -44,16 +44,17 @@ def suggest_transaction_type(naics_code: str | int | None, payor_type: str | Non
     ptype = (payor_type or "person").lower()
 
     mapping = [
-        (("722",), "Restaurant Meal"),
-        (("445",), "Grocery Purchase"),
-        (("44", "45"), "Retail Purchase"),
-        (("611",), "Educational Service"),
-        (("62",), "Medical Payment"),
-        (("52",), "Financial Service Fee"),
+        (("722",), ["Restaurant Meal", "Dining Out", "Food Service"]),
+        (("445",), ["Grocery Purchase", "Food Shopping", "Supermarket Visit"]),
+        (("44", "45"), ["Retail Purchase", "Shopping Trip", "Retail Goods"]),
+        (("611",), ["Educational Service", "Tuition Payment", "Course Enrollment"]),
+        (("62",), ["Medical Payment", "Healthcare Expense", "Medical Service"]),
+        (("52",), ["Financial Service Fee", "Banking Charge"]),
     ]
 
-    for prefixes, desc in mapping:
+    for prefixes, options in mapping:
         if any(code.startswith(p) for p in prefixes):
+            desc = random.choice(options)
             return desc if ptype == "person" else f"{desc} Expense"
 
     return "Business Expense" if ptype == "company" else "Personal Expense"

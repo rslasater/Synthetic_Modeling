@@ -13,7 +13,8 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - ATM cash transactions are rounded to the nearest $20.
 - Descriptions for merchant purchases now leverage an NLP-based model to
   infer the transaction type from NAICS codes and whether the payer is a person
-  or company.
+  or company. Each NAICS category includes multiple description options and the
+  generator randomly selects one to add variety.
 
 ---
 
