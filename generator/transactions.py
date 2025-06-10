@@ -10,11 +10,20 @@ from utils.helpers import (
     describe_transaction,
     suggest_transaction_type,
     fake,
+    generate_card_number,
 )
 import pandas as pd
 
 # Common payment types
-PAYMENT_TYPES = ["wire", "credit_card", "ach", "check", "cash"]
+PAYMENT_TYPES = [
+    "wire",
+    "credit_card",
+    "debit_card",
+    "pos",
+    "ach",
+    "check",
+    "cash",
+]
 
 
 class ProfileAccount:
@@ -31,6 +40,9 @@ class ProfileAccount:
         swift_code=None,
         routing_number=None,
         country="United States",
+        credit_card_number=None,
+        debit_card_number=None,
+        receiving_method=None,
     ):
         self.id = str(id)
         self.owner_id = owner_id
@@ -41,6 +53,9 @@ class ProfileAccount:
         self.swift_code = swift_code
         self.routing_number = routing_number
         self.country = country
+        self.credit_card_number = credit_card_number
+        self.debit_card_number = debit_card_number
+        self.receiving_method = receiving_method
 
 
 def get_payroll_dates(start_dt: datetime, end_dt: datetime) -> list[datetime]:
@@ -181,6 +196,28 @@ def generate_profile_transactions(
 
     merchants = profile_df[profile_df["type"] == "merchant"].copy()
     payers = profile_df[profile_df["type"].isin(["person", "company"])]
+
+    card_numbers = {}
+    recv_methods = {}
+    for _, row in profile_df.iterrows():
+        ent_id = row.get("entity_id")
+        ent_type = str(row.get("type"))
+        if ent_type in ["person", "company"]:
+            card_numbers[ent_id] = {
+                "credit": generate_card_number(),
+                "debit": generate_card_number(),
+            }
+        if ent_type in ["company", "merchant"]:
+            methods = str(row.get("accepted_payment_methods") or "").lower()
+            has_pos = "pos" in methods or "ccard" in methods
+            if has_pos:
+                recv_methods[ent_id] = random.choice(["Stripe", "Square", "POS"])
+            else:
+                recv_methods[ent_id] = random.choice([
+                    "CARD PAYMENT",
+                    "ONLINE PAYMENT",
+                    "PHONE PAYMENT AUTHORIZED",
+                ])
     bent_df = profile_df[profile_df["type"] == "BEnt"]
     bents_by_bank = {
         str(bank): g[["name", "address"]].to_dict("records")
@@ -219,6 +256,9 @@ def generate_profile_transactions(
             address=payer.get("address", ""),
             swift_code=bank_data.get("swift_code"),
             routing_number=bank_data.get("routing_number"),
+            credit_card_number=card_numbers.get(payer["entity_id"], {}).get("credit"),
+            debit_card_number=card_numbers.get(payer["entity_id"], {}).get("debit"),
+            receiving_method=recv_methods.get(payer["entity_id"]),
         )
 
         for code, freq in zip(pattern_list, freq_list):
@@ -249,6 +289,7 @@ def generate_profile_transactions(
                     address=merchant.get("address", ""),
                     swift_code=m_bank_data.get("swift_code"),
                     routing_number=m_bank_data.get("routing_number"),
+                    receiving_method=recv_methods.get(merchant["entity_id"]),
                 )
 
                 pay_opts = merchant.get("accepted_payment_methods")
@@ -391,6 +432,8 @@ def generate_profile_transactions(
                 address=emp.get("address", ""),
                 swift_code=emp_bank.get("swift_code"),
                 routing_number=emp_bank.get("routing_number"),
+                credit_card_number=card_numbers.get(emp["entity_id"], {}).get("credit"),
+                debit_card_number=card_numbers.get(emp["entity_id"], {}).get("debit"),
             )
             comp_acct = ProfileAccount(
                 id=comp_acct_id,
@@ -401,6 +444,9 @@ def generate_profile_transactions(
                 address=comp.get("address", ""),
                 swift_code=comp_bank.get("swift_code"),
                 routing_number=comp_bank.get("routing_number"),
+                credit_card_number=card_numbers.get(comp.name, {}).get("credit"),
+                debit_card_number=card_numbers.get(comp.name, {}).get("debit"),
+                receiving_method=recv_methods.get(comp.name),
             )
 
             pay_start = pay_date.replace(hour=8, minute=0, second=0, microsecond=0)
@@ -456,6 +502,7 @@ def generate_profile_transactions(
             address=merchant.get("address", ""),
             swift_code=merch_bank_data.get("swift_code"),
             routing_number=merch_bank_data.get("routing_number"),
+            receiving_method=recv_methods.get(merchant["entity_id"]),
         )
 
         ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")

@@ -22,6 +22,14 @@ def generate_uuid(length=12):
     """Generate a short unique ID (default 12 characters)."""
     return str(uuid.uuid4()).replace('-', '')[:length]
 
+def generate_card_number() -> str:
+    """Return a random Visa or MasterCard number formatted as
+    VS#### #### #### #### or MC#### #### #### ####."""
+    brand = random.choice(["VS", "MC"])
+    digits = "".join(str(random.randint(0, 9)) for _ in range(16))
+    formatted = f"{digits[:4]} {digits[4:8]} {digits[8:12]} {digits[12:]}"
+    return f"{brand}{formatted}"
+
 def parse_date(date_str):
     """Parse a date string like '2025-01-01' into a datetime object."""
     return datetime.strptime(date_str, "%Y-%m-%d")
@@ -125,6 +133,17 @@ def split_transaction(
     credit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     debit_description = source_description or f"{payment_type.upper()} - {tgt_name}"
     wire_details = None
+
+    # Custom descriptions for card/POS transactions
+    pt_lower = payment_type.lower().replace("_", " ")
+    if pt_lower in ["credit card", "debit card", "pos"] and src is not None and tgt is not None:
+        card_num = getattr(src, "credit_card_number", None)
+        if pt_lower == "debit card":
+            card_num = getattr(src, "debit_card_number", card_num)
+        date_str = timestamp.split(" ")[0]
+        method = getattr(tgt, "receiving_method", "")
+        debit_description = f"{method} - {tgt_name}, {card_num}, {date_str}, {abs(amount):.2f}"
+        credit_description = f"{method} - {src_name}, {card_num}, {date_str}, {abs(amount):.2f}"
 
     if payment_type.lower() == "wire":
         debit_description = credit_description = (
