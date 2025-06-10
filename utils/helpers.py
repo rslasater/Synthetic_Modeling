@@ -5,6 +5,19 @@ from faker import Faker
 
 fake = Faker()
 
+# Track check numbers issued per payor account
+CHECK_COUNTERS: dict[str, int] = {}
+
+def next_check_number(payor_id: str) -> int:
+    """Return the next sequential 4-digit check number for ``payor_id``."""
+    current = CHECK_COUNTERS.get(payor_id)
+    if current is None:
+        current = random.randint(1000, 9999)
+    else:
+        current += 1
+    CHECK_COUNTERS[payor_id] = current
+    return current
+
 def generate_uuid(length=12):
     """Generate a short unique ID (default 12 characters)."""
     return str(uuid.uuid4()).replace('-', '')[:length]
@@ -88,6 +101,7 @@ def split_transaction(
     payment_type,
     is_laundering,
     source_description="",
+    transaction_type=None,
     known_accounts=None,
     post_date=None,
     atm_id=None,
@@ -138,6 +152,16 @@ def split_transaction(
         )
         credit_description = (
             f"ACH Credit - Originator: {src_name}, SEC-Code: {sec_code}, Settled"
+        )
+
+    if payment_type.lower() == "check" and src is not None and tgt is not None:
+        check_num = next_check_number(src.id)
+        txn_type = transaction_type or suggest_transaction_type(None, getattr(src, "owner_type", None))
+        debit_description = (
+            f"Check - {tgt_name}, {check_num:04d}, {txn_type}, {abs(amount):.2f}, Settled"
+        )
+        credit_description = (
+            f"Check - {src_name}, {src.id}, {getattr(src, 'routing_number', '')}, {abs(amount):.2f}, Settled"
         )
 
     if payment_type.lower() == "cash":

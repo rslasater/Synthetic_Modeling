@@ -91,6 +91,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
         payment_type = random.choice(list(sender_rules.keys()))
         purpose = random.choice(sender_rules[payment_type])
         source_description = describe_transaction(payment_type, purpose)
+        trans_type = suggest_transaction_type(None, primary_entity.__class__.__name__)
 
         ts_dt = generate_transaction_timestamp(
             start_dt,
@@ -149,6 +150,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             payment_type=payment_type,
             is_laundering=False,
             source_description=sd,
+            transaction_type=trans_type if payment_type.lower() == "check" else None,
             known_accounts=known_accounts,
             post_date=post_date
         )
@@ -347,6 +349,7 @@ def generate_profile_transactions(
                         payment_type=payment_type,
                         is_laundering=False,
                         source_description=sd,
+                        transaction_type=purpose if payment_type.lower() == "check" else None,
                         known_accounts=known_accounts,
                         post_date=post_date
                     )
