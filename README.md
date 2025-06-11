@@ -9,6 +9,8 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - Generate financial transactions with realistic timestamps, payment types, and currencies.
 - Simulate common laundering patterns such as fan-out, cycles, and scatter-gather.
 - Label laundering transactions for easy classification.
+- Laundering participants are selected from agents with legitimate activity so no
+  new accounts appear only in laundering transactions.
 - Export clean `.csv` or `.xlsx` files for Excel.
 - Cash transactions now include a `channel` field (`ATM` or `Teller`). Amounts
   handled at an ATM are rounded to the nearest $20 and limited to $500. When a

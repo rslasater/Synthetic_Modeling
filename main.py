@@ -80,6 +80,13 @@ def main():
         )
         log(f"✅ Legitimate transactions generated: {len(legit_txns)}")
 
+    # Restrict laundering participants to agents with legitimate activity
+    legit_account_ids = {t["account_id"] for t in legit_txns}
+    eligible_accounts = [a for a in accounts if a.id in legit_account_ids]
+    eligible_entities = [
+        e for e in entities if any(ac.id in legit_account_ids for ac in e.accounts)
+    ]
+
     laundering_txns = []
 
     # ✅ Pattern-based laundering injection (YAML-driven)
@@ -90,7 +97,7 @@ def main():
 
         from generator.patterns import inject_patterns
         laundering_txns = inject_patterns(
-            accounts=accounts,
+            accounts=eligible_accounts if eligible_accounts else accounts,
             pattern_config=pattern_config,
             known_accounts=known_accounts_set
         )
@@ -100,8 +107,8 @@ def main():
     elif args.laundering_chains > 0:
         log("💸 Generating laundering transaction chains...")
         laundering_txns = generate_laundering_chains(
-            entities=entities,
-            accounts=accounts,
+            entities=eligible_entities if eligible_entities else entities,
+            accounts=eligible_accounts if eligible_accounts else accounts,
             known_accounts=known_accounts_set,
             start_date=datetime.strptime(args.start_date, "%Y-%m-%d"),
             end_date=datetime.strptime(args.end_date, "%Y-%m-%d"),
