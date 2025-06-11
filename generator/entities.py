@@ -46,6 +46,8 @@ class Account:
         self.owner_type = owner_type
         self.bank_id = bank_id
         self.bank_code = bank_code
+        # Alias for backward compatibility
+        self.bank = bank_code
         self.currency = currency
         self.account_number = self.id
         # Optional context for downstream transaction rows

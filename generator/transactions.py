@@ -59,6 +59,8 @@ class ProfileAccount:
         self.debit_card_number = debit_card_number
         self.receiving_method = receiving_method
         self.bank_code = bank_code
+        # Alias for backward compatibility
+        self.bank = bank_code
         self.launderer = launderer
 
 
