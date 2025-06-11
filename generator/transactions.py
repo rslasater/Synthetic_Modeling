@@ -163,7 +163,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
                 if random.random() < 0.05:
                     remaining = amount
                     part_idx = 0
-                    while remaining > 0:
+                    while round(remaining, 2) > 0:
                         part = round(min(ATM_LIMIT, remaining), 2)
                         part_id = f"{txn_id}-{part_idx}"
                         entries = split_transaction(
@@ -388,7 +388,7 @@ def generate_profile_transactions(
                         if random.random() < 0.05:
                             remaining = amount
                             idx = 0
-                            while remaining > 0:
+                            while round(remaining, 2) > 0:
                                 part = round(min(ATM_LIMIT, remaining), 2)
                                 w_id = f"{txn_id}W{idx}"
                                 entries = split_transaction(
