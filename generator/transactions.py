@@ -115,10 +115,10 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
         )
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        amount = round(random.uniform(50, 5000), 2)
         if payment_type.lower() == "cash":
-            amount = round(random.uniform(20, ATM_LIMIT), 2)
-        else:
-            amount = round(random.uniform(50, 5000), 2)
+            divisor = random.randint(2, 5)
+            amount = round(amount / divisor, 2)
         txn_id = generate_uuid()
 
         # Determine src/tgt accounts based on payment type
@@ -158,26 +158,73 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
 
         sd = source_description if payment_type.lower() != "ach" else ""
 
-        channel = "ATM" if amount <= ATM_LIMIT else "Teller"
+        if payment_type.lower() == "cash":
+            if amount > ATM_LIMIT:
+                if random.random() < 0.05:
+                    remaining = amount
+                    part_idx = 0
+                    while remaining > 0:
+                        part = round(min(ATM_LIMIT, remaining), 2)
+                        part_id = f"{txn_id}-{part_idx}"
+                        entries = split_transaction(
+                            txn_id=part_id,
+                            timestamp=timestamp,
+                            src=src,
+                            tgt=tgt,
+                            amount=part,
+                            currency="USD",
+                            payment_type=payment_type,
+                            is_laundering=False,
+                            source_description=sd,
+                            transaction_type=trans_type if payment_type.lower() == "check" else None,
+                            known_accounts=known_accounts,
+                            post_date=post_date,
+                            channel="ATM",
+                        )
+                        transactions.extend(entries)
+                        success += 1
+                        remaining -= part
+                        part_idx += 1
+                    continue
+                else:
+                    channel = "Teller"
+            else:
+                channel = "ATM"
 
-        entries = split_transaction(
-            txn_id=txn_id,
-            timestamp=timestamp,
-            src=src,
-            tgt=tgt,
-            amount=amount,
-            currency="USD",
-            payment_type=payment_type,
-            is_laundering=False,
-            source_description=sd,
-            transaction_type=trans_type if payment_type.lower() == "check" else None,
-            known_accounts=known_accounts,
-            post_date=post_date,
-            channel=channel
-        )
-
-        transactions.extend(entries)
-        success += 1
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=src,
+                tgt=tgt,
+                amount=amount,
+                currency="USD",
+                payment_type=payment_type,
+                is_laundering=False,
+                source_description=sd,
+                transaction_type=trans_type if payment_type.lower() == "check" else None,
+                known_accounts=known_accounts,
+                post_date=post_date,
+                channel=channel,
+            )
+            transactions.extend(entries)
+            success += 1
+        else:
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=src,
+                tgt=tgt,
+                amount=amount,
+                currency="USD",
+                payment_type=payment_type,
+                is_laundering=False,
+                source_description=sd,
+                transaction_type=trans_type if payment_type.lower() == "check" else None,
+                known_accounts=known_accounts,
+                post_date=post_date,
+            )
+            transactions.extend(entries)
+            success += 1
 
     print(f"[DEBUG] Attempted: {attempts}")
     print(f"[DEBUG] Success: {success}")
@@ -324,9 +371,9 @@ def generate_profile_transactions(
                 amount = round(amount, 2)
 
                 if payment_type == "cash":
-                    channel = "ATM" if amount <= ATM_LIMIT else "Teller"
-                    amount = min(amount, ATM_LIMIT)
-                    # Withdrawal by payer via BEnt
+                    divisor = random.randint(2, 5)
+                    amount = round(amount / divisor, 2)
+
                     payer_bank = str(payer.get("bank"))
                     payer_bents = bents_by_bank.get(payer_bank, [])
                     if payer_bents:
@@ -336,6 +383,70 @@ def generate_profile_transactions(
                     else:
                         bent_id = generate_uuid(8)
                         bent_loc = fake.address().replace("\n", ", ")
+
+                    if amount > ATM_LIMIT:
+                        if random.random() < 0.05:
+                            remaining = amount
+                            idx = 0
+                            while remaining > 0:
+                                part = round(min(ATM_LIMIT, remaining), 2)
+                                w_id = f"{txn_id}W{idx}"
+                                entries = split_transaction(
+                                    txn_id=w_id,
+                                    timestamp=timestamp,
+                                    src=payer_acct,
+                                    tgt=None,
+                                    amount=part,
+                                    currency="USD",
+                                    payment_type="cash",
+                                    is_laundering=False,
+                                    known_accounts=known_accounts,
+                                    post_date=post_date,
+                                    atm_id=bent_id,
+                                    atm_location=bent_loc,
+                                    channel="ATM",
+                                )
+                                transactions.extend(entries)
+
+                                deposit_now = random.choice([True, False])
+                                if deposit_now:
+                                    merch_bank = str(merchant.get("bank"))
+                                    merch_bents = bents_by_bank.get(merch_bank, [])
+                                    if merch_bents:
+                                        bent2_rec = random.choice(merch_bents)
+                                        bent2 = bent2_rec.get("name")
+                                        bent2_loc = bent2_rec.get("address")
+                                    else:
+                                        bent2 = generate_uuid(8)
+                                        bent2_loc = fake.address().replace("\n", ", ")
+
+                                    d_id = f"{txn_id}D{idx}"
+                                    entries = split_transaction(
+                                        txn_id=d_id,
+                                        timestamp=timestamp,
+                                        src=None,
+                                        tgt=tgt_acct,
+                                        amount=part,
+                                        currency="USD",
+                                        payment_type="cash",
+                                        is_laundering=False,
+                                        known_accounts=known_accounts,
+                                        post_date=post_date,
+                                        atm_id=bent2,
+                                        atm_location=bent2_loc,
+                                        channel="ATM",
+                                    )
+                                    transactions.extend(entries)
+                                else:
+                                    pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + part
+
+                                remaining -= part
+                                idx += 1
+                            continue
+                        else:
+                            channel = "Teller"
+                    else:
+                        channel = "ATM"
 
                     entries = split_transaction(
                         txn_id=txn_id + "W",
@@ -349,8 +460,8 @@ def generate_profile_transactions(
                         known_accounts=known_accounts,
                         post_date=post_date,
                         atm_id=bent_id,
-                        atm_location=bent_loc
-
+                        atm_location=bent_loc,
+                        channel=channel,
                     )
                     transactions.extend(entries)
 

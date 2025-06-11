@@ -11,7 +11,11 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - Label laundering transactions for easy classification.
 - Export clean `.csv` or `.xlsx` files for Excel.
 - Cash transactions now include a `channel` field (`ATM` or `Teller`). Amounts
-  handled at an ATM are rounded to the nearest $20 and limited to $500.
+  handled at an ATM are rounded to the nearest $20 and limited to $500. When a
+  transaction is selected as cash, the base amount is divided by a random value
+  between 2 and 5 to reflect everyday spending. If the result still exceeds $500,
+  the generator creates multiple ATM withdrawals (5% chance) or a single teller
+  transaction (95% chance), unless overridden by a laundering pattern.
 - Descriptions for merchant purchases now leverage an NLP-based model to
   infer the transaction type from NAICS codes and whether the payer is a person
   or company. Each NAICS category includes multiple description options and the
@@ -81,5 +85,5 @@ The generator will read merchant patterns, frequencies, payment methods, and ave
 
 ### BEnt Entities (ATMs/Tellers)
 `BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.
-ATM withdrawals are limited to $500 while tellers can handle larger amounts in laundering patterns.
+ATM withdrawals are limited to $500. When cash needs exceed this limit, the generator usually records a teller transaction but will occasionally split the amount into several ATM withdrawals. Laundering patterns may override these rules.
 
