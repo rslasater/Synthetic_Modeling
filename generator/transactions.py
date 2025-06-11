@@ -23,6 +23,8 @@ PAYMENT_TYPES = [
     "cash",
 ]
 
+ATM_LIMIT = 500  # Max cash that can be dispensed at an ATM
+
 
 class ProfileAccount:
     """Lightweight account object used for profile-driven transactions."""
@@ -113,7 +115,10 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
         )
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
-        amount = round(random.uniform(50, 5000), 2)
+        if payment_type.lower() == "cash":
+            amount = round(random.uniform(20, ATM_LIMIT), 2)
+        else:
+            amount = round(random.uniform(50, 5000), 2)
         txn_id = generate_uuid()
 
         # Determine src/tgt accounts based on payment type
@@ -153,6 +158,8 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
 
         sd = source_description if payment_type.lower() != "ach" else ""
 
+        channel = "ATM" if amount <= ATM_LIMIT else "Teller"
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
@@ -165,7 +172,8 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             source_description=sd,
             transaction_type=trans_type if payment_type.lower() == "check" else None,
             known_accounts=known_accounts,
-            post_date=post_date
+            post_date=post_date,
+            channel=channel
         )
 
         transactions.extend(entries)
@@ -316,6 +324,8 @@ def generate_profile_transactions(
                 amount = round(amount, 2)
 
                 if payment_type == "cash":
+                    channel = "ATM" if amount <= ATM_LIMIT else "Teller"
+                    amount = min(amount, ATM_LIMIT)
                     # Withdrawal by payer via BEnt
                     payer_bank = str(payer.get("bank"))
                     payer_bents = bents_by_bank.get(payer_bank, [])
@@ -369,6 +379,7 @@ def generate_profile_transactions(
                             post_date=post_date,
                             atm_id=bent2,
                             atm_location=bent2_loc,
+                            channel=channel,
                         )
                         transactions.extend(entries)
                     else:
@@ -513,19 +524,23 @@ def generate_profile_transactions(
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
         txn_id = generate_uuid()
 
+        amount = round(min(amt, ATM_LIMIT), 2)
+        channel = "ATM" if amount <= ATM_LIMIT else "Teller"
+
         entries = split_transaction(
             txn_id=txn_id,
             timestamp=timestamp,
             src=None,
             tgt=tgt_acct,
-            amount=round(amt, 2),
+            amount=amount,
             currency="USD",
             payment_type="cash",
             is_laundering=False,
             known_accounts=known_accounts,
             post_date=post_date,
             atm_id=bent_id,
-            atm_location=bent_loc
+            atm_location=bent_loc,
+            channel=channel
         )
         transactions.extend(entries)
 

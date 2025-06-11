@@ -117,6 +117,7 @@ def split_transaction(
     post_date=None,
     atm_id=None,
     atm_location=None,
+    channel="ATM",
 ):
     """Split a transaction into debit and credit entries."""
     known_accounts = known_accounts or set()
@@ -189,7 +190,8 @@ def split_transaction(
         )
 
     if payment_type.lower() == "cash":
-        amount = round_cash_amount(amount)
+        if channel == "ATM":
+            amount = round_cash_amount(amount)
         # Use provided ATM/BEnt metadata if available
         if atm_id is None:
             atm_id = generate_uuid(8)
@@ -201,7 +203,7 @@ def split_transaction(
         credit_description = f"CASH - Deposit at {atm_location}"
         debit_description = f"CASH - Withdrawal at {atm_location}"
 
-        placeholder_cp = "ATM"
+        placeholder_cp = channel
 
         # Deposit: src is None
         if src is None and tgt is not None:
@@ -223,7 +225,8 @@ def split_transaction(
                     "post_date": post_date,
                     "atm_id": atm_id,
                     "atm_location": atm_location,
-                    "wire_details": wire_details
+                    "wire_details": wire_details,
+                    "channel": channel
                 })
             return rows
 
@@ -247,7 +250,8 @@ def split_transaction(
                     "post_date": post_date,
                     "atm_id": atm_id,
                     "atm_location": atm_location,
-                    "wire_details": wire_details
+                    "wire_details": wire_details,
+                    "channel": channel
                 })
             return rows
 
@@ -270,7 +274,8 @@ def split_transaction(
                 "post_date": post_date,
                 "atm_id": atm_id,
                 "atm_location": atm_location,
-                "wire_details": wire_details
+                "wire_details": wire_details,
+                "channel": channel
             })
 
         if tgt_known:
@@ -291,7 +296,8 @@ def split_transaction(
                 "post_date": post_date,
                 "atm_id": atm_id,
                 "atm_location": atm_location,
-                "wire_details": wire_details
+                "wire_details": wire_details,
+                "channel": channel
             })
 
         return rows
