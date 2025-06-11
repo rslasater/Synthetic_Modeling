@@ -178,6 +178,10 @@ def split_transaction(
             f"ACH Credit - Originator: {src_name}, SEC-Code: {sec_code}, Settled"
         )
 
+    if payment_type.lower() == "p2p" and src is not None:
+        provider = source_description.split()[-1] if source_description else "P2P"
+        debit_description = credit_description = f"P2P Transfer via {provider}"
+
     if payment_type.lower() == "check" and src is not None and tgt is not None:
         check_num = next_check_number(src.id)
         txn_type = transaction_type or suggest_transaction_type(None, getattr(src, "owner_type", None))
@@ -388,6 +392,8 @@ def describe_transaction(payment_type, purpose=None):
         return f"CREDIT CARD - {purpose} charged to account at {company}"
     elif payment_type == "check":
         return f"CHECK - {purpose} written by {name}"
+    elif payment_type == "p2p":
+        return f"P2P Transfer via {purpose}"
 
     return f"{payment_type.upper()} - {purpose or 'Transaction'}"
 

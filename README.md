@@ -10,6 +10,7 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - Simulate common laundering patterns such as fan-out, cycles, and scatter-gather.
 - Label laundering transactions for easy classification.
 - Export clean `.csv` or `.xlsx` files for Excel.
+- Optional modeling of peer-to-peer (P2P) transfers via CashApp or Venmo.
 - ATM cash transactions are rounded to the nearest $20.
 - Descriptions for merchant purchases now leverage an NLP-based model to
   infer the transaction type from NAICS codes and whether the payer is a person
@@ -63,6 +64,7 @@ python main.py --agent_profiles agents/agent_profiles.xlsx
 ```
 
 The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file.
+Include `P2P` in an agent's `accepted_payment_methods` column to generate a CashApp or Venmo account for that entity. When exporting with `--export_p2p`, additional sheets `p2p_accounts` and `p2p_transfers` will be added to the Excel file.
 
 ### BEnt Entities (ATMs/Tellers)
 `BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.

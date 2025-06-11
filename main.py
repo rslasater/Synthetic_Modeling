@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--known_account_ratio", type=float, default=0.5, help="Fraction of accounts with full visibility")
     parser.add_argument("--start_date", type=str, default="2025-01-01", help="Start date for transaction range")
     parser.add_argument("--end_date", type=str, default="2025-01-31", help="End date for transaction range")
+    parser.add_argument("--export_p2p", action="store_true", help="Include P2P sheets in Excel export")
 
     args = parser.parse_args()
 
@@ -61,7 +62,7 @@ def main():
             }
             for b in entities_data["banks"]
         }
-        legit_txns = generate_profile_transactions(
+        legit_txns, p2p_accts, p2p_transfers = generate_profile_transactions(
             profile_df=profile_df,
             start_date=args.start_date,
             end_date=args.end_date,
@@ -70,6 +71,8 @@ def main():
         log(f"✅ Profile-based transactions generated: {len(legit_txns)}")
     else:
         log("📊 Generating legitimate transactions...")
+        p2p_accts = pd.DataFrame()
+        p2p_transfers = pd.DataFrame()
         legit_txns = generate_legit_transactions(
             accounts=accounts,
             entities=entities,
@@ -117,7 +120,14 @@ def main():
     if args.format == "csv":
         export_to_csv(all_txns, args.output)
     else:
-        export_to_excel(all_txns, args.output)
+        if args.export_p2p:
+            export_to_excel({
+                "transactions": pd.DataFrame(all_txns),
+                "p2p_accounts": p2p_accts,
+                "p2p_transfers": p2p_transfers,
+            }, args.output)
+        else:
+            export_to_excel(all_txns, args.output)
 
     log(f"📦 Total transactions to export: {len(all_txns)}")
     log("✅ Done.")

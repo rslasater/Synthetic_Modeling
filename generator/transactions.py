@@ -21,6 +21,7 @@ PAYMENT_TYPES = [
     "ach",
     "check",
     "cash",
+    "p2p",
 ]
 
 
@@ -185,8 +186,8 @@ def generate_profile_transactions(
     start_date: str,
     end_date: str,
     bank_lookup: dict | None = None,
-) -> list[dict]:
-    """Generate transactions using structured agent profiles."""
+) -> tuple[list[dict], pd.DataFrame, pd.DataFrame]:
+    """Generate transactions and P2P ledgers using structured agent profiles."""
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
 
@@ -221,7 +222,24 @@ def generate_profile_transactions(
         for bank, g in bent_df.groupby("bank")
     }
 
+    p2p_accounts = []
+    p2p_lookup: dict[str, dict] = {}
+    for _, row in profile_df.iterrows():
+        methods = str(row.get("accepted_payment_methods") or "").lower()
+        if "p2p" in methods:
+            pid = generate_uuid(10)
+            provider = random.choice(["CashApp", "Venmo"])
+            p2p_accounts.append({
+                "entity_id": row.get("entity_id"),
+                "name": row.get("name", ""),
+                "provider": provider,
+                "p2p_id": pid,
+            })
+            p2p_lookup[row.get("entity_id")] = {"p2p_id": pid, "provider": provider}
+
     pending_deposits: dict[str, float] = {}
+    pending_p2p: dict[str, float] = {}
+    p2p_transfers = []
 
     transactions = []
 
@@ -373,6 +391,55 @@ def generate_profile_transactions(
                         transactions.extend(entries)
                     else:
                         pending_deposits[tgt_acct.id] = pending_deposits.get(tgt_acct.id, 0) + amount
+                elif payment_type == "p2p":
+                    payer_p2p = p2p_lookup.get(payer["entity_id"])
+                    merch_p2p = p2p_lookup.get(merchant["entity_id"])
+                    if not payer_p2p or not merch_p2p:
+                        continue
+                    sd = describe_transaction("p2p", payer_p2p["provider"])
+                    entries = split_transaction(
+                        txn_id=txn_id,
+                        timestamp=timestamp,
+                        src=payer_acct,
+                        tgt=None,
+                        amount=amount,
+                        currency="USD",
+                        payment_type="p2p",
+                        is_laundering=False,
+                        source_description=sd,
+                        known_accounts=known_accounts,
+                        post_date=post_date,
+                    )
+                    transactions.extend(entries)
+
+                    p2p_transfers.append({
+                        "transaction_id": txn_id,
+                        "timestamp": timestamp,
+                        "from_p2p": payer_p2p["p2p_id"],
+                        "to_p2p": merch_p2p["p2p_id"],
+                        "amount": amount,
+                        "provider": payer_p2p["provider"],
+                    })
+
+                    deposit_now = random.choice([True, False])
+                    if deposit_now:
+                        sd2 = describe_transaction("p2p", merch_p2p["provider"])
+                        entries = split_transaction(
+                            txn_id=txn_id + "D",
+                            timestamp=timestamp,
+                            src=None,
+                            tgt=tgt_acct,
+                            amount=amount,
+                            currency="USD",
+                            payment_type="p2p",
+                            is_laundering=False,
+                            source_description=sd2,
+                            known_accounts=known_accounts,
+                            post_date=post_date,
+                        )
+                        transactions.extend(entries)
+                    else:
+                        pending_p2p[tgt_acct.id] = pending_p2p.get(tgt_acct.id, 0) + amount
                 else:
                     purpose = suggest_transaction_type(
                         merchant.get("naics_code"), payer.get("type")
@@ -529,4 +596,48 @@ def generate_profile_transactions(
         )
         transactions.extend(entries)
 
-    return transactions
+    # Batch deposit accumulated p2p balances
+    for acct_id, amt in pending_p2p.items():
+        merchant_row = merchants[merchants["account_number"] == acct_id]
+        if merchant_row.empty:
+            continue
+        merchant = merchant_row.iloc[0]
+        merch_bank_code = str(merchant.get("bank"))
+        merch_bank_data = bank_lookup.get(merch_bank_code, {}) if bank_lookup else {}
+        merch_p2p = p2p_lookup.get(merchant["entity_id"])
+        if not merch_p2p:
+            continue
+        tgt_acct = ProfileAccount(
+            id=acct_id,
+            owner_id=merchant["entity_id"],
+            owner_type="Merchant",
+            owner_name=merchant.get("name", ""),
+            bank_name=merch_bank_data.get("name", ""),
+            address=merchant.get("address", ""),
+            swift_code=merch_bank_data.get("swift_code"),
+            routing_number=merch_bank_data.get("routing_number"),
+            receiving_method=recv_methods.get(merchant["entity_id"]),
+        )
+
+        ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")
+        timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        txn_id = generate_uuid()
+
+        sd = describe_transaction("p2p", merch_p2p["provider"])
+
+        entries = split_transaction(
+            txn_id=txn_id,
+            timestamp=timestamp,
+            src=None,
+            tgt=tgt_acct,
+            amount=round(amt, 2),
+            currency="USD",
+            payment_type="p2p",
+            is_laundering=False,
+            known_accounts=known_accounts,
+            post_date=post_date,
+            source_description=sd,
+        )
+        transactions.extend(entries)
+    return transactions, pd.DataFrame(p2p_accounts), pd.DataFrame(p2p_transfers)

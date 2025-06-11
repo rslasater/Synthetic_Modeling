@@ -17,6 +17,7 @@ export_format = st.selectbox("Export format", options=["csv", "xlsx"], index=1)
 known_account_ratio = st.slider("Known account ratio", min_value=0.0, max_value=1.0, value=0.5)
 start_date = st.date_input("Start date", value=None, key="start")
 end_date = st.date_input("End date", value=None, key="end")
+export_p2p = st.checkbox("Include P2P sheets in Excel export")
 
 start_str = start_date.isoformat() if start_date else "2025-01-01"
 end_str = end_date.isoformat() if end_date else "2025-01-31"
@@ -39,6 +40,8 @@ if st.button("Generate"):
         cmd += ["--patterns", patterns]
     if agent_profiles:
         cmd += ["--agent_profiles", agent_profiles]
+    if export_p2p:
+        cmd += ["--export_p2p"]
 
     with st.spinner("Generating dataset..."):
         result = subprocess.run(cmd, capture_output=True, text=True)
