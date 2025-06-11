@@ -81,7 +81,7 @@ If you have a structured Excel file of agent profiles, you can generate transact
 python main.py --agent_profiles agents/agent_profiles.xlsx
 ```
 
-The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file.
+The generator will read merchant patterns, frequencies, payment methods, and average expenses to create realistic transactions between the entities defined in the file. When `transaction_probability` (also called `payment_probabilities` in older files) is provided alongside `accepted_payment_types`, the values are treated as weights when selecting a payment type for each transaction.
 
 ### BEnt Entities (ATMs/Tellers)
 `BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.

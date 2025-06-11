@@ -267,7 +267,11 @@ def generate_profile_transactions(
                 "debit": generate_card_number(),
             }
         if ent_type in ["company", "merchant"]:
-            methods = str(row.get("accepted_payment_methods") or "").lower()
+            methods = str(
+                row.get("accepted_payment_methods")
+                or row.get("accepted_payment_types")
+                or ""
+            ).lower()
             if "pos" in methods:
                 recv_methods[ent_id] = random.choice(["Stripe", "Square", "POS"])
             else:
@@ -354,7 +358,10 @@ def generate_profile_transactions(
                     launderer=False,
                 )
 
-                pay_opts = merchant.get("accepted_payment_methods")
+                pay_opts = (
+                    merchant.get("accepted_payment_methods")
+                    or merchant.get("accepted_payment_types")
+                )
                 if isinstance(pay_opts, str) and pay_opts.strip():
                     raw_types = [p.strip().lower() for p in pay_opts.split(',') if p.strip()]
                     payment_types = []
@@ -365,7 +372,20 @@ def generate_profile_transactions(
                             payment_types.append(pt)
                 else:
                     payment_types = PAYMENT_TYPES
-                payment_type = random.choice(payment_types)
+                prob_str = (
+                    merchant.get("transaction_probability")
+                    or merchant.get("payment_probabilities")
+                )
+                probabilities = None
+                if isinstance(prob_str, str) and prob_str.strip():
+                    try:
+                        probabilities = [float(x.strip()) for x in prob_str.split(',') if x.strip()]
+                    except ValueError:
+                        probabilities = None
+                if probabilities and len(probabilities) == len(payment_types):
+                    payment_type = random.choices(payment_types, weights=probabilities, k=1)[0]
+                else:
+                    payment_type = random.choice(payment_types)
 
                 avg_exp = merchant.get("average_expense")
                 if pd.isna(avg_exp):
