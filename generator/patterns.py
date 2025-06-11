@@ -1,7 +1,7 @@
 import random
 import uuid
 from datetime import datetime
-from generator.transactions import PAYMENT_TYPES
+from generator.transactions import PAYMENT_TYPES, ATM_LIMIT
 from utils.helpers import (
     to_datetime,
     generate_uuid,
@@ -26,6 +26,8 @@ def inject_patterns(accounts, pattern_config, known_accounts=None):
                 txns = inject_scatter_gather_pattern(accounts, pattern, known_accounts)
             elif pattern_type == "fan_in":
                 txns = inject_fan_in_pattern(accounts, pattern, known_accounts)
+            elif pattern_type == "cash_structuring":
+                txns = inject_cash_structuring_pattern(accounts, pattern, known_accounts)
             else:
                 print(f"Unsupported pattern type: {pattern_type}")
                 continue
@@ -223,5 +225,52 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
         )
 
         transactions.extend(entries)
+
+    return transactions
+
+
+def inject_cash_structuring_pattern(accounts, pattern, known_accounts):
+    accounts_per_pattern = pattern.get("accounts", 1)
+    txns_per_account = pattern.get("transactions_per_account", 5)
+    max_deposit = pattern.get("max_deposit", 10000)
+    atm_ratio = pattern.get("atm_ratio", 0.5)
+    currency = pattern.get("currency", "USD")
+    start_dt = to_datetime(pattern["start_date"])
+    end_dt = to_datetime(pattern["end_date"])
+
+    selected = safe_sample(accounts, accounts_per_pattern)
+
+    transactions = []
+    for acct in selected:
+        for _ in range(txns_per_account):
+            deposit = random.choice([True, False])
+            channel = "ATM" if random.random() < atm_ratio else "Teller"
+            if channel == "ATM":
+                amount = random.uniform(100, ATM_LIMIT)
+            else:
+                amount = random.uniform(ATM_LIMIT, max_deposit)
+
+            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            txn_id = generate_uuid()
+
+            src = None if deposit else acct
+            tgt = acct if deposit else None
+
+            entries = split_transaction(
+                txn_id=txn_id,
+                timestamp=timestamp,
+                src=src,
+                tgt=tgt,
+                amount=round(amount, 2),
+                currency=currency,
+                payment_type="cash",
+                is_laundering=True,
+                known_accounts=known_accounts,
+                post_date=post_date,
+                channel=channel,
+            )
+            transactions.extend(entries)
 
     return transactions

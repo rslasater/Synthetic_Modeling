@@ -28,6 +28,17 @@ patterns:
     end_date: "2025-01-20"
     label: true
 
+  - type: cash_structuring
+    instances: 1
+    accounts: 2
+    transactions_per_account: 5
+    max_deposit: 10000
+    atm_ratio: 0.6
+    currency: USD
+    start_date: "2025-01-21"
+    end_date: "2025-01-25"
+    label: true
+
 defaults:
   currency: USD
   label: true
