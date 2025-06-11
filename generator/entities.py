@@ -69,7 +69,9 @@ class Entity:
         self.bank = None  # Assigned via account generation
         # Majority of entities are US based
         self.country = "United States" if random.random() < 0.8 else faker.country()
-        self.launderer = random.choice([True, False])
+        # Accounts will be flagged as laundering participants after
+        # laundering transactions are generated
+        self.launderer = False
         self.visibility = random.choices(
             VISIBILITY_OPTIONS,
             weights=[0.25, 0.25, 0.5]  # Bias toward 'both'
