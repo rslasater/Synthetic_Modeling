@@ -1,5 +1,20 @@
 from collections import defaultdict
 
+def flag_laundering_accounts(entries, accounts, entities=None):
+    """Mark Account and Entity objects participating in laundering."""
+    laundering_ids = {e["account_id"] for e in entries if e.get("is_laundering")}
+    acct_map = {a.id: a for a in accounts}
+
+    for acct_id in laundering_ids:
+        acct = acct_map.get(acct_id)
+        if not acct:
+            continue
+        acct.launderer = True
+        if entities is not None:
+            for ent in entities:
+                if acct in getattr(ent, "accounts", []):
+                    ent.launderer = True
+
 def propagate_laundering(entries):
     """
     Propagate laundering labels through debit → credit flow.

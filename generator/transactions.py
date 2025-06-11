@@ -43,6 +43,8 @@ class ProfileAccount:
         credit_card_number=None,
         debit_card_number=None,
         receiving_method=None,
+        bank_code="",
+        launderer=False,
     ):
         self.id = str(id)
         self.owner_id = owner_id
@@ -56,6 +58,10 @@ class ProfileAccount:
         self.credit_card_number = credit_card_number
         self.debit_card_number = debit_card_number
         self.receiving_method = receiving_method
+        self.bank_code = bank_code
+        # Alias for backward compatibility
+        self.bank = bank_code
+        self.launderer = launderer
 
 
 def get_payroll_dates(start_dt: datetime, end_dt: datetime) -> list[datetime]:
@@ -305,12 +311,14 @@ def generate_profile_transactions(
             owner_type=payer["type"].capitalize(),
             owner_name=payer.get("name", ""),
             bank_name=bank_data.get("name", ""),
+            bank_code=payer_bank_code,
             address=payer.get("address", ""),
             swift_code=bank_data.get("swift_code"),
             routing_number=bank_data.get("routing_number"),
             credit_card_number=card_numbers.get(payer["entity_id"], {}).get("credit"),
             debit_card_number=card_numbers.get(payer["entity_id"], {}).get("debit"),
             receiving_method=recv_methods.get(payer["entity_id"]),
+            launderer=False,
         )
 
         for code, freq in zip(pattern_list, freq_list):
@@ -338,10 +346,12 @@ def generate_profile_transactions(
                     owner_type="Merchant",
                     owner_name=merchant.get("name", ""),
                     bank_name=m_bank_data.get("name", ""),
+                    bank_code=merch_bank_code,
                     address=merchant.get("address", ""),
                     swift_code=m_bank_data.get("swift_code"),
                     routing_number=m_bank_data.get("routing_number"),
                     receiving_method=recv_methods.get(merchant["entity_id"]),
+                    launderer=False,
                 )
 
                 pay_opts = merchant.get("accepted_payment_methods")
@@ -554,11 +564,13 @@ def generate_profile_transactions(
                 owner_type="Person",
                 owner_name=emp.get("name", ""),
                 bank_name=emp_bank.get("name", ""),
+                bank_code=emp_bank_code,
                 address=emp.get("address", ""),
                 swift_code=emp_bank.get("swift_code"),
                 routing_number=emp_bank.get("routing_number"),
                 credit_card_number=card_numbers.get(emp["entity_id"], {}).get("credit"),
                 debit_card_number=card_numbers.get(emp["entity_id"], {}).get("debit"),
+                launderer=False,
             )
             comp_acct = ProfileAccount(
                 id=comp_acct_id,
@@ -566,12 +578,14 @@ def generate_profile_transactions(
                 owner_type="Company",
                 owner_name=comp.get("name", ""),
                 bank_name=comp_bank.get("name", ""),
+                bank_code=comp_bank_code,
                 address=comp.get("address", ""),
                 swift_code=comp_bank.get("swift_code"),
                 routing_number=comp_bank.get("routing_number"),
                 credit_card_number=card_numbers.get(comp.name, {}).get("credit"),
                 debit_card_number=card_numbers.get(comp.name, {}).get("debit"),
                 receiving_method=recv_methods.get(comp.name),
+                launderer=False,
             )
 
             pay_start = pay_date.replace(hour=8, minute=0, second=0, microsecond=0)
@@ -624,10 +638,12 @@ def generate_profile_transactions(
             owner_type="Merchant",
             owner_name=merchant.get("name", ""),
             bank_name=merch_bank_data.get("name", ""),
+            bank_code=merch_bank,
             address=merchant.get("address", ""),
             swift_code=merch_bank_data.get("swift_code"),
             routing_number=merch_bank_data.get("routing_number"),
             receiving_method=recv_methods.get(merchant["entity_id"]),
+            launderer=False,
         )
 
         ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")

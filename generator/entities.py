@@ -38,12 +38,16 @@ class Account:
         credit_card_number=None,
         debit_card_number=None,
         receiving_method=None,
+        launderer=False,
     ):
         serial = random.randint(10**8, 10**9 - 1)
         self.id = f"{bank_code}{serial}"
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.bank_id = bank_id
+        self.bank_code = bank_code
+        # Alias for backward compatibility
+        self.bank = bank_code
         self.currency = currency
         self.account_number = self.id
         # Optional context for downstream transaction rows
@@ -55,6 +59,7 @@ class Account:
         self.credit_card_number = credit_card_number
         self.debit_card_number = debit_card_number
         self.receiving_method = receiving_method
+        self.launderer = launderer
 
 # === Base Entity ===
 class Entity:
@@ -66,7 +71,9 @@ class Entity:
         self.bank = None  # Assigned via account generation
         # Majority of entities are US based
         self.country = "United States" if random.random() < 0.8 else faker.country()
-        self.launderer = random.choice([True, False])
+        # Accounts will be flagged as laundering participants after
+        # laundering transactions are generated
+        self.launderer = False
         self.visibility = random.choices(
             VISIBILITY_OPTIONS,
             weights=[0.25, 0.25, 0.5]  # Bias toward 'both'
@@ -166,7 +173,8 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
                 routing_number=bank.aba_routing_number,
                 credit_card_number=getattr(entity, "credit_card_number", None),
                 debit_card_number=getattr(entity, "debit_card_number", None),
-                receiving_method=getattr(entity, "receiving_method", None)
+                receiving_method=getattr(entity, "receiving_method", None),
+                launderer=entity.launderer,
             )
             entity.accounts.append(account)
             all_accounts.append(account)

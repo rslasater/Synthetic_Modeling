@@ -12,7 +12,7 @@ from generator.entities import generate_entities
 from generator.transactions import generate_legit_transactions, generate_profile_transactions
 from generator.laundering import generate_laundering_chains
 from generator.exporter import export_to_csv, export_to_excel
-from generator.labels import propagate_laundering
+from generator.labels import propagate_laundering, flag_laundering_accounts
 from utils.logger import log
 
 def main():
@@ -108,6 +108,9 @@ def main():
             n_chains=args.laundering_chains
         )
         log(f"✅ Laundering transactions generated (chains): {len(laundering_txns)}")
+
+    if laundering_txns:
+        flag_laundering_accounts(laundering_txns, accounts, entities)
 
     log("🔍 Propagating laundering labels (taint tracking)...")
     all_txns = legit_txns + laundering_txns

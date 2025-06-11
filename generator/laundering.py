@@ -1,5 +1,4 @@
 import random
-from datetime import timedelta
 from utils.helpers import (
     generate_uuid,
     generate_transaction_timestamp,
@@ -10,17 +9,18 @@ from utils.helpers import (
 
 def generate_laundering_chains(entities, accounts, known_accounts, start_date, end_date, n_chains=10):
     transactions = []
-    launderers = [e for e in entities if getattr(e, "launderer", False)]
-
     for _ in range(n_chains):
-        if len(launderers) == 0:
+        if not accounts:
             break
 
-        origin = random.choice(launderers)
+        origin_acct = random.choice(accounts)
+        origin = next((e for e in entities if origin_acct in e.accounts), None)
+        if origin is None:
+            continue
 
         # Select a random layering pattern
         pattern_type = random.choice(["layering", "circular", "burst"])
-        origin_acct = random.choice(origin.accounts)
+        origin_acct = origin_acct
         intermediaries = get_intermediaries(origin, entities, min_count=2)
 
         if not intermediaries:
