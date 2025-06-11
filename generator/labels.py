@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime
 
 def flag_laundering_accounts(entries, accounts, entities=None):
     """Mark Account and Entity objects participating in laundering."""
@@ -16,32 +17,46 @@ def flag_laundering_accounts(entries, accounts, entities=None):
                     ent.launderer = True
 
 def propagate_laundering(entries):
-    """
-    Propagate laundering labels through debit → credit flow.
-    Assumes double-entry format with 'account_id', 'counterparty', and 'direction'.
-    """
-    tainted_accounts = set()
-    updated_entries = []
+    """Propagate laundering labels through debit → credit flow.
 
-    # First pass — mark tainted accounts directly
+    Only transactions that occur *after* an account engages in laundering
+    activity should be marked as laundering. Legitimate history before the first
+    laundering transaction remains untouched.
+    """
+
+    # Track the earliest laundering timestamp for each account
+    taint_start: dict[str, datetime | None] = defaultdict(lambda: None)
+
     for entry in entries:
         if entry.get("is_laundering", False):
-            tainted_accounts.add(entry["account_id"])
+            ts = datetime.strptime(entry["timestamp"], "%Y-%m-%d %H:%M:%S")
+            acct = entry["account_id"]
+            if taint_start[acct] is None or ts < taint_start[acct]:
+                taint_start[acct] = ts
 
-    # Second pass — propagate taint based on flow direction
+    updated_entries = []
+
     for entry in entries:
-        direction = entry.get("direction")
+        ts = datetime.strptime(entry["timestamp"], "%Y-%m-%d %H:%M:%S")
         acct = entry.get("account_id")
         counterparty = entry.get("counterparty")
+        direction = entry.get("direction")
 
-        # If the counterparty is tainted and this account is the recipient, mark it
-        if direction == "credit" and counterparty in tainted_accounts:
-            tainted_accounts.add(acct)
+        acct_start = taint_start.get(acct)
+        cp_start = taint_start.get(counterparty)
+
+        if entry.get("is_laundering", False):
+            updated_entries.append(entry)
+            continue
+
+        # Mark credits from tainted counterparties that occur after taint start
+        if direction == "credit" and cp_start and ts >= cp_start:
+            taint_start.setdefault(acct, ts)
             entry["is_laundering"] = True
 
-        # If this is a tainted debit, make sure the counterparty becomes tainted too
-        if direction == "debit" and acct in tainted_accounts:
-            tainted_accounts.add(counterparty)
+        # Mark debits from tainted accounts after their taint start
+        elif direction == "debit" and acct_start and ts >= acct_start:
+            taint_start.setdefault(counterparty, ts)
             entry["is_laundering"] = True
 
         updated_entries.append(entry)

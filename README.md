@@ -11,6 +11,8 @@ This project generates small-scale, realistic anti-money laundering (AML) datase
 - Label laundering transactions for easy classification.
 - Laundering participants are selected from agents with legitimate activity so no
   new accounts appear only in laundering transactions.
+- Legitimate transactions that occur before an account participates in
+  laundering remain untainted when labels propagate.
 - Export clean `.csv` or `.xlsx` files for Excel.
 - Cash transactions now include a `channel` field (`ATM` or `Teller`). Amounts
   handled at an ATM are rounded to the nearest $20 and limited to $500. When a
