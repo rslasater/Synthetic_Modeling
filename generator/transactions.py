@@ -232,11 +232,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             transactions.extend(entries)
             success += 1
 
-    print(f"[DEBUG] Attempted: {attempts}")
-    print(f"[DEBUG] Success: {success}")
-    print(f"[DEBUG] Skipped (visibility): {skipped_visibility}")
-    print(f"[DEBUG] Skipped (unknown accounts): {skipped_known}")
-    print(f"[DEBUG] Skipped (payment type issues): {skipped_payment_type}")
+
 
     return transactions
 

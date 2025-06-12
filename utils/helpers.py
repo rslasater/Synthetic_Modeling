@@ -396,9 +396,7 @@ def split_transaction(
             "wire_details": None
         })
 
-    print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id if tgt else 'CASH'}, src_known: {src_known}, tgt_known: {tgt_known}")
-    if not src_known and not tgt_known:
-        print(f"⚠️ Skipping txn {txn_id}: both accounts unknown")
+
 
     return rows
 
