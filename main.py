@@ -2,7 +2,7 @@ import argparse
 import yaml
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import sample
 import pandas as pd
 
@@ -14,6 +14,7 @@ from generator.laundering import generate_laundering_chains
 from generator.exporter import export_to_csv, export_to_excel
 from generator.labels import propagate_laundering, flag_laundering_accounts
 from utils.logger import log
+from utils.helpers import earliest_timestamps_by_account
 
 def main():
     parser = argparse.ArgumentParser(description="Synthetic AML Dataset Generator")
@@ -80,6 +81,11 @@ def main():
         )
         log(f"✅ Legitimate transactions generated: {len(legit_txns)}")
 
+    # Determine earliest legitimate timestamp per account
+    earliest_map = earliest_timestamps_by_account(legit_txns)
+    min_start_times = {aid: ts + timedelta(hours=1) for aid, ts in earliest_map.items()}
+    accounts_with_history = [a for a in accounts if a.id in earliest_map]
+
     laundering_txns = []
 
     # ✅ Pattern-based laundering injection (YAML-driven)
@@ -90,9 +96,10 @@ def main():
 
         from generator.patterns import inject_patterns
         laundering_txns = inject_patterns(
-            accounts=accounts,
+            accounts=accounts_with_history,
             pattern_config=pattern_config,
-            known_accounts=known_accounts_set
+            known_accounts=known_accounts_set,
+            min_start_time=min_start_times,
         )
         log(f"✅ Laundering transactions generated (pattern-based): {len(laundering_txns)}")
 
@@ -101,11 +108,12 @@ def main():
         log("💸 Generating laundering transaction chains...")
         laundering_txns = generate_laundering_chains(
             entities=entities,
-            accounts=accounts,
+            accounts=accounts_with_history,
             known_accounts=known_accounts_set,
             start_date=datetime.strptime(args.start_date, "%Y-%m-%d"),
             end_date=datetime.strptime(args.end_date, "%Y-%m-%d"),
-            n_chains=args.laundering_chains
+            n_chains=args.laundering_chains,
+            min_start_time=min_start_times,
         )
         log(f"✅ Laundering transactions generated (chains): {len(laundering_txns)}")
 

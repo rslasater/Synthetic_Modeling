@@ -12,22 +12,24 @@ from utils.helpers import (
     safe_sample,
 )
 
-def inject_patterns(accounts, pattern_config, known_accounts=None):
+def inject_patterns(accounts, pattern_config, known_accounts=None, min_start_time=None):
+    if min_start_time:
+        accounts = [a for a in accounts if a.id in min_start_time]
     laundering_transactions = []
 
     for pattern in pattern_config.get("patterns", []):
         pattern_type = pattern["type"]
         for _ in range(pattern["instances"]):
             if pattern_type == "cycle":
-                txns = inject_cycle_pattern(accounts, pattern, known_accounts)
+                txns = inject_cycle_pattern(accounts, pattern, known_accounts, min_start_time)
             elif pattern_type == "fan_out":
-                txns = inject_fan_out_pattern(accounts, pattern, known_accounts)
+                txns = inject_fan_out_pattern(accounts, pattern, known_accounts, min_start_time)
             elif pattern_type == "scatter_gather":
-                txns = inject_scatter_gather_pattern(accounts, pattern, known_accounts)
+                txns = inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_time)
             elif pattern_type == "fan_in":
-                txns = inject_fan_in_pattern(accounts, pattern, known_accounts)
+                txns = inject_fan_in_pattern(accounts, pattern, known_accounts, min_start_time)
             elif pattern_type == "cash_structuring":
-                txns = inject_cash_structuring_pattern(accounts, pattern, known_accounts)
+                txns = inject_cash_structuring_pattern(accounts, pattern, known_accounts, min_start_time)
             else:
                 print(f"Unsupported pattern type: {pattern_type}")
                 continue
@@ -37,7 +39,7 @@ def inject_patterns(accounts, pattern_config, known_accounts=None):
     return laundering_transactions
 
 
-def inject_cycle_pattern(accounts, pattern, known_accounts):
+def inject_cycle_pattern(accounts, pattern, known_accounts, min_start_time=None):
     count = pattern.get("accounts_per_cycle", 3)
     amount = pattern.get("amount", 1000)
     currency = pattern.get("currency", "USD")
@@ -56,7 +58,12 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
         src = selected[i]
         tgt = selected[(i + 1) % actual_count]
         txn_id = generate_uuid()
-        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        txn_start = start_dt
+        if min_start_time:
+            for acct in (src, tgt):
+                if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                    txn_start = min_start_time[acct.id]
+        ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -77,7 +84,7 @@ def inject_cycle_pattern(accounts, pattern, known_accounts):
     return transactions
 
 
-def inject_fan_out_pattern(accounts, pattern, known_accounts):
+def inject_fan_out_pattern(accounts, pattern, known_accounts, min_start_time=None):
     num_targets = pattern.get("targets_per_source", 3)
     amount = pattern.get("amount_per_target", 500)
     currency = pattern.get("currency", "USD")
@@ -92,7 +99,12 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts):
     transactions = []
     for tgt in targets:
         txn_id = generate_uuid()
-        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        txn_start = start_dt
+        if min_start_time:
+            for acct in (source, tgt):
+                if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                    txn_start = min_start_time[acct.id]
+        ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -113,7 +125,7 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts):
     return transactions
 
 
-def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
+def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_time=None):
     sources = pattern.get("sources", 1)
     intermediates = pattern.get("intermediates", 3)
     sinks = pattern.get("sinks", 1)
@@ -140,7 +152,12 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
     for src in src_accounts:
         for int_acct in int_accounts:
             txn_id = generate_uuid()
-            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            txn_start = start_dt
+            if min_start_time:
+                for acct in (src, int_acct):
+                    if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                        txn_start = min_start_time[acct.id]
+            ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -162,7 +179,12 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
     for int_acct in int_accounts:
         for sink in sink_accounts:
             txn_id = generate_uuid()
-            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            txn_start = start_dt
+            if min_start_time:
+                for acct in (int_acct, sink):
+                    if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                        txn_start = min_start_time[acct.id]
+            ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -182,7 +204,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts):
 
     return transactions
 
-def inject_fan_in_pattern(accounts, pattern, known_accounts):
+def inject_fan_in_pattern(accounts, pattern, known_accounts, min_start_time=None):
     sources_per_target = pattern.get("sources_per_target", 5)
     amount_per_source = pattern.get("amount_per_source", 200)
     currency = pattern.get("currency", "USD")
@@ -199,7 +221,12 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
 
     for src in sources:
         txn_id = generate_uuid()
-        ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+        txn_start = start_dt
+        if min_start_time:
+            for acct in (src, target):
+                if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                    txn_start = min_start_time[acct.id]
+        ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
         payment_type = random.choice(safe_payment_types)
@@ -229,7 +256,7 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts):
     return transactions
 
 
-def inject_cash_structuring_pattern(accounts, pattern, known_accounts):
+def inject_cash_structuring_pattern(accounts, pattern, known_accounts, min_start_time=None):
     accounts_per_pattern = pattern.get("accounts", 1)
     txns_per_account = pattern.get("transactions_per_account", 5)
     max_deposit = pattern.get("max_deposit", 10000)
@@ -250,7 +277,10 @@ def inject_cash_structuring_pattern(accounts, pattern, known_accounts):
             else:
                 amount = random.uniform(ATM_LIMIT, max_deposit)
 
-            ts_dt = generate_transaction_timestamp(start_dt, end_dt, override_hours=True)
+            txn_start = start_dt
+            if min_start_time and acct.id in min_start_time and min_start_time[acct.id] > txn_start:
+                txn_start = min_start_time[acct.id]
+            ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
             txn_id = generate_uuid()
