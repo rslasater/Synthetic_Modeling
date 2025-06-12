@@ -1,7 +1,14 @@
 from collections import defaultdict
 
 def flag_laundering_accounts(entries, accounts, entities=None):
-    """Mark Account and Entity objects participating in laundering."""
+    """Mark Account and Entity objects participating in laundering.
+
+    In addition to flagging the ``Account`` and ``Entity`` instances, any
+    transaction entry whose ``account_id`` matches a flagged account will have
+    ``"laundering_account"`` set to ``"Yes"``. This ensures that both the debit
+    and credit sides of the transaction reflect the updated status.
+    """
+
     laundering_ids = {e["account_id"] for e in entries if e.get("is_laundering")}
     acct_map = {a.id: a for a in accounts}
 
@@ -14,6 +21,11 @@ def flag_laundering_accounts(entries, accounts, entities=None):
             for ent in entities:
                 if acct in getattr(ent, "accounts", []):
                     ent.launderer = True
+
+    # Update all entries to reflect flagged accounts
+    for entry in entries:
+        if entry.get("account_id") in laundering_ids:
+            entry["laundering_account"] = "Yes"
 
 def propagate_laundering(entries):
     """Propagate laundering labels based on transaction chronology.

@@ -4,7 +4,9 @@ import pytest
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from generator.labels import propagate_laundering
+from types import SimpleNamespace
+
+from generator.labels import propagate_laundering, flag_laundering_accounts
 
 
 def test_propagate_laundering_respects_first_event():
@@ -45,3 +47,24 @@ def test_propagate_laundering_respects_first_event():
     assert result[1]["is_laundering"] is True
     assert result[2]["is_laundering"] is True
     assert result[3]["is_laundering"] is True
+
+
+def test_flag_laundering_accounts_updates_entries():
+    entries = [
+        {"account_id": "A", "is_laundering": True, "direction": "debit"},
+        {"account_id": "B", "is_laundering": True, "direction": "credit"},
+        {"account_id": "B", "is_laundering": False, "direction": "debit"},
+    ]
+
+    accounts = [
+        SimpleNamespace(id="A", launderer=False),
+        SimpleNamespace(id="B", launderer=False),
+    ]
+
+    flag_laundering_accounts(entries, accounts)
+
+    for entry in entries:
+        assert entry.get("laundering_account") == "Yes"
+
+    for acct in accounts:
+        assert acct.launderer is True
