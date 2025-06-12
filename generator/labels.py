@@ -52,13 +52,21 @@ def propagate_laundering(entries):
         # Mark credits from tainted counterparties that occur after taint start
         if direction == "credit" and cp_start and ts >= cp_start:
             taint_start.setdefault(acct, ts)
+
             entry["is_laundering"] = True
+            tainted_accounts.add(acct)
+            first_seen.setdefault(acct, ts)
 
-        # Mark debits from tainted accounts after their taint start
-        elif direction == "debit" and acct_start and ts >= acct_start:
-            taint_start.setdefault(counterparty, ts)
+        if (
+            direction == "debit"
+            and acct in tainted_accounts
+            and ts >= first_seen[acct]
+        ):
             entry["is_laundering"] = True
+            tainted_accounts.add(counterparty)
+            first_seen.setdefault(counterparty, ts)
 
-        updated_entries.append(entry)
+        updated.append(entry)
 
-    return updated_entries
+    # Return entries sorted to maintain chronological order
+    return sorted(updated, key=lambda e: e.get("timestamp"))
