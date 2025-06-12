@@ -37,6 +37,11 @@ def main():
     parser.add_argument("--known_account_ratio", type=float, default=0.5, help="Fraction of accounts with full visibility")
     parser.add_argument("--start_date", type=str, default="2025-01-01", help="Start date for transaction range")
     parser.add_argument("--end_date", type=str, default="2025-01-31", help="End date for transaction range")
+    parser.add_argument(
+        "--propagate_laundering",
+        action="store_true",
+        help="Propagate laundering labels through taint tracking",
+    )
 
     args = parser.parse_args()
 
@@ -157,9 +162,12 @@ def main():
 
         flag_laundering_accounts(laundering_txns, accounts, entities)
 
-    log("🔍 Propagating laundering labels (taint tracking)...")
     all_txns = legit_txns + laundering_txns
-    all_txns = propagate_laundering(all_txns)
+    if args.propagate_laundering:
+        log("🔍 Propagating laundering labels (taint tracking)...")
+        all_txns = propagate_laundering(all_txns)
+    else:
+        log("🔍 Skipping laundering propagation; using base labels.")
 
     log(f"💾 Exporting {len(all_txns)} transactions to {args.output}")
     if args.format == "csv":
