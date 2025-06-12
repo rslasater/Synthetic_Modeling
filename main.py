@@ -4,6 +4,7 @@ import sys
 import os
 from datetime import datetime, timedelta
 from random import sample
+import random
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -23,6 +24,12 @@ def main():
     parser.add_argument("--banks", type=int, default=3, help="Number of banks")
     parser.add_argument("--legit_txns", type=int, default=500, help="Number of legitimate transactions")
     parser.add_argument("--laundering_chains", type=int, default=10, help="Number of laundering behavior chains")
+    parser.add_argument(
+        "--laundering_ratio",
+        type=float,
+        default=0.25,
+        help="Desired ratio of laundering to legitimate transactions",
+    )
     parser.add_argument("--patterns", type=str, default=None, help="Path to laundering patterns YAML file")
     parser.add_argument("--agent_profiles", type=str, default=None, help="Path to agent profiles Excel file")
     parser.add_argument("--output", type=str, default="data/aml_dataset.xlsx", help="Output file path")
@@ -131,6 +138,12 @@ def main():
         log(f"✅ Laundering transactions generated (chains): {len(laundering_txns)}")
 
     if laundering_txns:
+        max_laundering = int(len(legit_txns) * args.laundering_ratio)
+        if max_laundering and len(laundering_txns) > max_laundering:
+            laundering_txns = random.sample(laundering_txns, max_laundering)
+            log(
+                f"✂️  Truncated laundering transactions to ratio {args.laundering_ratio}: {len(laundering_txns)}"
+            )
         flag_laundering_accounts(laundering_txns, accounts, entities)
 
     log("🔍 Propagating laundering labels (taint tracking)...")
