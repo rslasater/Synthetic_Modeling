@@ -15,6 +15,8 @@ from utils.helpers import (
 def inject_patterns(accounts, pattern_config, known_accounts=None, min_start_time=None):
     if min_start_time:
         accounts = [a for a in accounts if a.id in min_start_time]
+    if not accounts:
+        return []
     laundering_transactions = []
 
     for pattern in pattern_config.get("patterns", []):
@@ -46,7 +48,12 @@ def inject_cycle_pattern(accounts, pattern, known_accounts, min_start_time=None)
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
-    selected = safe_sample(accounts, count)
+    eligible = [
+        a
+        for a in accounts
+        if not min_start_time or min_start_time.get(a.id, start_dt) <= end_dt
+    ]
+    selected = safe_sample(eligible, count)
     actual_count = len(selected)
     if actual_count < 2:
         return []
@@ -63,6 +70,8 @@ def inject_cycle_pattern(accounts, pattern, known_accounts, min_start_time=None)
             for acct in (src, tgt):
                 if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                     txn_start = min_start_time[acct.id]
+        if txn_start > end_dt:
+            continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -93,8 +102,16 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts, min_start_time=Non
 
     safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
-    source = random.choice(accounts)
-    targets = safe_sample([a for a in accounts if a.id != source.id], num_targets)
+    eligible = [
+        a
+        for a in accounts
+        if not min_start_time or min_start_time.get(a.id, start_dt) <= end_dt
+    ]
+    if len(eligible) < 2:
+        return []
+
+    source = random.choice(eligible)
+    targets = safe_sample([a for a in eligible if a.id != source.id], num_targets)
 
     transactions = []
     for tgt in targets:
@@ -104,6 +121,8 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts, min_start_time=Non
             for acct in (source, tgt):
                 if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                     txn_start = min_start_time[acct.id]
+        if txn_start > end_dt:
+            continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -136,7 +155,12 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_t
 
     safe_payment_types = [p for p in PAYMENT_TYPES if p != "cash"]
 
-    accounts_pool = list(accounts)
+    eligible = [
+        a
+        for a in accounts
+        if not min_start_time or min_start_time.get(a.id, start_dt) <= end_dt
+    ]
+    accounts_pool = list(eligible)
     random.shuffle(accounts_pool)
 
     src_accounts = [accounts_pool.pop() for _ in range(min(sources, len(accounts_pool)))]
@@ -157,6 +181,8 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_t
                 for acct in (src, int_acct):
                     if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                         txn_start = min_start_time[acct.id]
+            if txn_start > end_dt:
+                continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -184,6 +210,8 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_t
                 for acct in (int_acct, sink):
                     if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                         txn_start = min_start_time[acct.id]
+            if txn_start > end_dt:
+                continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -215,9 +243,16 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts, min_start_time=None
 
     transactions = []
 
-    # Select one target and multiple unique sources
-    target = random.choice(accounts)
-    sources = safe_sample([a for a in accounts if a.id != target.id], sources_per_target)
+    eligible = [
+        a
+        for a in accounts
+        if not min_start_time or min_start_time.get(a.id, start_dt) <= end_dt
+    ]
+    if len(eligible) < 2:
+        return []
+
+    target = random.choice(eligible)
+    sources = safe_sample([a for a in eligible if a.id != target.id], sources_per_target)
 
     for src in sources:
         txn_id = generate_uuid()
@@ -226,6 +261,8 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts, min_start_time=None
             for acct in (src, target):
                 if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                     txn_start = min_start_time[acct.id]
+        if txn_start > end_dt:
+            continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -265,7 +302,12 @@ def inject_cash_structuring_pattern(accounts, pattern, known_accounts, min_start
     start_dt = to_datetime(pattern["start_date"])
     end_dt = to_datetime(pattern["end_date"])
 
-    selected = safe_sample(accounts, accounts_per_pattern)
+    eligible = [
+        a
+        for a in accounts
+        if not min_start_time or min_start_time.get(a.id, start_dt) <= end_dt
+    ]
+    selected = safe_sample(eligible, accounts_per_pattern)
 
     transactions = []
     for acct in selected:
@@ -280,6 +322,8 @@ def inject_cash_structuring_pattern(accounts, pattern, known_accounts, min_start
             txn_start = start_dt
             if min_start_time and acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                 txn_start = min_start_time[acct.id]
+            if txn_start > end_dt:
+                continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
             post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")

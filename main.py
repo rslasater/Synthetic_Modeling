@@ -88,8 +88,11 @@ def main():
 
     laundering_txns = []
 
+    if (args.patterns or args.laundering_chains > 0) and not accounts_with_history:
+        log("⚠️  No legitimate transaction history; skipping laundering generation")
+
     # ✅ Pattern-based laundering injection (YAML-driven)
-    if args.patterns:
+    elif args.patterns:
         log(f"📂 Loading laundering patterns from {args.patterns}")
         with open(args.patterns, "r") as f:
             pattern_config = yaml.safe_load(f)
