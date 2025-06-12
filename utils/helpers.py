@@ -43,6 +43,21 @@ def random_timestamp(start_date, end_date):
     random_seconds = random.randint(0, int(delta.total_seconds()))
     return start_date + timedelta(seconds=random_seconds)
 
+
+def earliest_timestamps_by_account(entries: list[dict]) -> dict[str, datetime]:
+    """Return the earliest timestamp observed for each account."""
+    mins: dict[str, datetime] = {}
+    for e in entries:
+        acct = e.get("account_id")
+        ts_str = e.get("timestamp")
+        if not acct or not ts_str:
+            continue
+        ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+        current = mins.get(acct)
+        if current is None or ts < current:
+            mins[acct] = ts
+    return mins
+
 def safe_sample(population, k):
     """Safely sample k items from a list, even if the list is smaller than k."""
     return random.sample(population, min(k, len(population)))
@@ -381,9 +396,7 @@ def split_transaction(
             "wire_details": None
         })
 
-    print(f"[DEBUG] src: {src.id if src else 'CASH'}, tgt: {tgt.id if tgt else 'CASH'}, src_known: {src_known}, tgt_known: {tgt_known}")
-    if not src_known and not tgt_known:
-        print(f"⚠️ Skipping txn {txn_id}: both accounts unknown")
+
 
     return rows
 
