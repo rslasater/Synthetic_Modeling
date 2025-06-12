@@ -51,6 +51,8 @@ def main():
 
     log(f"🔍 Selected known accounts: {len(known_accounts_set)}")
 
+    legit_txns = []
+
     if args.agent_profiles:
         log(f"📂 Loading agent profiles from {args.agent_profiles}")
         profile_df = pd.read_excel(args.agent_profiles, sheet_name="Combined_Data")
@@ -62,16 +64,21 @@ def main():
             }
             for b in entities_data["banks"]
         }
-        legit_txns = generate_profile_transactions(
+        profile_txns = generate_profile_transactions(
             profile_df=profile_df,
             start_date=args.start_date,
             end_date=args.end_date,
             bank_lookup=bank_lookup,
         )
-        log(f"✅ Profile-based transactions generated: {len(legit_txns)}")
-    else:
-        log("📊 Generating legitimate transactions...")
-        legit_txns = generate_legit_transactions(
+        legit_txns.extend(profile_txns)
+        log(f"✅ Profile-based transactions generated: {len(profile_txns)}")
+
+    if args.legit_txns > 0:
+        if args.agent_profiles:
+            log("📊 Generating additional legitimate transactions...")
+        else:
+            log("📊 Generating legitimate transactions...")
+        base_txns = generate_legit_transactions(
             accounts=accounts,
             entities=entities,
             n=args.legit_txns,
@@ -79,10 +86,13 @@ def main():
             end_date=args.end_date,
             known_accounts=known_accounts_set
         )
-        log(f"✅ Legitimate transactions generated: {len(legit_txns)}")
+        legit_txns.extend(base_txns)
+        log(f"✅ Legitimate transactions generated: {len(base_txns)}")
 
     # Determine earliest legitimate timestamp per account
-    earliest_map = earliest_timestamps_by_account(legit_txns)
+    accounts_set = {a.id for a in accounts}
+    earliest_map_all = earliest_timestamps_by_account(legit_txns)
+    earliest_map = {aid: ts for aid, ts in earliest_map_all.items() if aid in accounts_set}
     min_start_times = {aid: ts + timedelta(hours=1) for aid, ts in earliest_map.items()}
     accounts_with_history = [a for a in accounts if a.id in earliest_map]
 
