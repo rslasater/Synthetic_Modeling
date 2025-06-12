@@ -30,6 +30,7 @@ class Account:
         bank_id,
         currency="USD",
         bank_code="000",
+        account_number=None,
         owner_name=None,
         bank_name=None,
         country="United States",
@@ -40,8 +41,11 @@ class Account:
         receiving_method=None,
         launderer=False,
     ):
-        serial = random.randint(10**8, 10**9 - 1)
-        self.id = f"{bank_code}{serial}"
+        if account_number is not None:
+            self.id = str(account_number)
+        else:
+            serial = random.randint(10**8, 10**9 - 1)
+            self.id = f"{bank_code}{serial}"
         self.owner_id = owner_id
         self.owner_type = owner_type
         self.bank_id = bank_id
@@ -187,8 +191,42 @@ def create_companies(n=5, profiles_df=None):
         return comps
     return [Company() for _ in range(n)]
 
-def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
+def assign_accounts(entities, banks, accounts_per_entity=(1, 3), profiles_df=None):
     all_accounts = []
+    bank_lookup = {str(b.code): b for b in banks}
+
+    if profiles_df is not None and not profiles_df.empty:
+        for entity in entities:
+            rows = profiles_df[profiles_df["entity_id"] == entity.id]
+            if rows.empty:
+                continue
+            row = rows.iloc[0]
+            bank_code = str(row.get("bank")) if not pd.isna(row.get("bank")) else random.choice(list(bank_lookup.keys()))
+            bank = bank_lookup.get(bank_code, random.choice(banks))
+            acct_num = row.get("account_number")
+            if pd.isna(acct_num):
+                acct_num = faker.unique.random_number(digits=9, fix_len=True)
+            account = Account(
+                owner_id=entity.id,
+                owner_type=entity.__class__.__name__,
+                bank_id=bank.id,
+                currency=random.choice(CURRENCIES),
+                bank_code=bank.code,
+                account_number=acct_num,
+                owner_name=entity.name,
+                bank_name=bank.name,
+                country=entity.country,
+                swift_code=bank.swift_code or faker.swift8(),
+                routing_number=bank.aba_routing_number or faker.aba(),
+                credit_card_number=getattr(entity, "credit_card_number", None),
+                debit_card_number=getattr(entity, "debit_card_number", None),
+                receiving_method=getattr(entity, "receiving_method", None),
+                launderer=entity.launderer,
+            )
+            entity.accounts.append(account)
+            all_accounts.append(account)
+        return all_accounts
+
     for entity in entities:
         num_accounts = random.randint(*accounts_per_entity)
         for _ in range(num_accounts):
@@ -228,6 +266,15 @@ def generate_entities(
     that some accounts will later participate in laundering flows.
     """
 
+    if profile_path and os.path.exists(profile_path):
+        try:
+            banks_df_full = pd.read_excel(profile_path, sheet_name="banks")
+            n_banks = max(n_banks, len(banks_df_full))
+        except Exception:
+            banks_df_full = None
+    else:
+        banks_df_full = None
+
     banks = create_banks(n_banks, profiles_path=profile_path)
 
     people_df = None
@@ -242,15 +289,55 @@ def generate_entities(
         except Exception:
             company_df = None
 
-    individuals = create_individuals(n_individuals, profiles_df=people_df)
-    companies = create_companies(n_companies, profiles_df=company_df)
+    sample_people_df = people_df
+    sample_company_df = company_df
+    if people_df is not None and not people_df.empty:
+        sample_people_df = people_df.sample(min(n_individuals, len(people_df)))
+        individuals = []
+        for _, row in sample_people_df.iterrows():
+            p = Person()
+            p.id = str(row.get("entity_id", p.id))
+            p.name = row.get("name") if pd.notna(row.get("name")) else faker.name()
+            p.address = row.get("address") if pd.notna(row.get("address")) else faker.address()
+            p.phone = row.get("phone_number") if pd.notna(row.get("phone_number")) else faker.phone_number()
+            individuals.append(p)
+        if len(individuals) < n_individuals:
+            individuals.extend(Person() for _ in range(n_individuals - len(individuals)))
+    else:
+        individuals = create_individuals(n_individuals)
+        sample_people_df = None
+
+    if company_df is not None and not company_df.empty:
+        sample_company_df = company_df.sample(min(n_companies, len(company_df)))
+        companies = []
+        for _, row in sample_company_df.iterrows():
+            c = Company()
+            c.id = str(row.get("entity_id", c.id))
+            c.name = row.get("name") if pd.notna(row.get("name")) else faker.company()
+            c.address = row.get("address") if pd.notna(row.get("address")) else faker.address()
+            c.phone = row.get("phone_number") if pd.notna(row.get("phone_number")) else faker.phone_number()
+            companies.append(c)
+        if len(companies) < n_companies:
+            companies.extend(Company() for _ in range(n_companies - len(companies)))
+    else:
+        companies = create_companies(n_companies)
+        sample_company_df = None
 
     all_entities = individuals + companies
     # Randomly flag entities as laundering participants
     for ent in all_entities:
         ent.launderer = random.choice([True, False])
 
-    accounts = assign_accounts(all_entities, banks)
+    if profile_path and (sample_people_df is not None or sample_company_df is not None):
+        account_df_list = []
+        if sample_people_df is not None:
+            account_df_list.append(sample_people_df[["entity_id", "bank", "account_number"]])
+        if sample_company_df is not None:
+            account_df_list.append(sample_company_df[["entity_id", "bank", "account_number"]])
+        profiles_df = pd.concat(account_df_list, ignore_index=True) if account_df_list else None
+        accounts = assign_accounts(all_entities, banks, profiles_df=profiles_df)
+    else:
+        accounts = assign_accounts(all_entities, banks)
     return {
         "banks": banks,
         "individuals": individuals,
