@@ -148,10 +148,43 @@ def create_banks(n=3, profiles_path=None):
     names = random.sample(BANK_NAMES, min(n, len(BANK_NAMES)))
     return [Bank(name=name) for name in names]
 
-def create_individuals(n=10):
+def create_individuals(n=10, profiles_df=None):
+    """Return a list of ``Person`` objects.
+
+    When ``profiles_df`` is provided it should contain the columns
+    ``entity_id`` and ``name`` at minimum. The dataframe will be sampled
+    to the requested ``n`` and the data used to populate the objects.
+    """
+    if profiles_df is not None and not profiles_df.empty:
+        sample_df = profiles_df.sample(min(n, len(profiles_df)))
+        people = []
+        for _, row in sample_df.iterrows():
+            p = Person()
+            p.id = str(row.get("entity_id", p.id))
+            p.name = row.get("name", p.name)
+            p.address = row.get("address", p.address)
+            p.phone = row.get("phone_number", p.phone)
+            people.append(p)
+        if len(people) < n:
+            people.extend(Person() for _ in range(n - len(people)))
+        return people
     return [Person() for _ in range(n)]
 
-def create_companies(n=5):
+def create_companies(n=5, profiles_df=None):
+    """Return a list of ``Company`` objects."""
+    if profiles_df is not None and not profiles_df.empty:
+        sample_df = profiles_df.sample(min(n, len(profiles_df)))
+        comps = []
+        for _, row in sample_df.iterrows():
+            c = Company()
+            c.id = str(row.get("entity_id", c.id))
+            c.name = row.get("name", c.name)
+            c.address = row.get("address", c.address)
+            c.phone = row.get("phone_number", c.phone)
+            comps.append(c)
+        if len(comps) < n:
+            comps.extend(Company() for _ in range(n - len(comps)))
+        return comps
     return [Company() for _ in range(n)]
 
 def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
@@ -181,18 +214,49 @@ def assign_accounts(entities, banks, accounts_per_entity=(1, 3)):
     return all_accounts
 
 # === Top-level function ===
-def generate_entities(n_banks=3, n_individuals=10, n_companies=5, profile_path=None):
+def generate_entities(
+    n_banks: int = 3,
+    n_individuals: int = 10,
+    n_companies: int = 5,
+    profile_path: str | None = None,
+):
+    """Generate banks, individuals and companies.
+
+    When ``profile_path`` is supplied the Excel file will be used to
+    populate the agent names and metadata. Regardless of the source,
+    persons and companies are randomly flagged as laundering agents so
+    that some accounts will later participate in laundering flows.
+    """
+
     banks = create_banks(n_banks, profiles_path=profile_path)
-    individuals = create_individuals(n_individuals)
-    companies = create_companies(n_companies)
+
+    people_df = None
+    company_df = None
+    if profile_path and os.path.exists(profile_path):
+        try:
+            people_df = pd.read_excel(profile_path, sheet_name="People")
+        except Exception:
+            people_df = None
+        try:
+            company_df = pd.read_excel(profile_path, sheet_name="Companies1")
+        except Exception:
+            company_df = None
+
+    individuals = create_individuals(n_individuals, profiles_df=people_df)
+    companies = create_companies(n_companies, profiles_df=company_df)
+
     all_entities = individuals + companies
+    # Randomly flag entities as laundering participants
+    for ent in all_entities:
+        ent.launderer = random.choice([True, False])
+
     accounts = assign_accounts(all_entities, banks)
     return {
         "banks": banks,
         "individuals": individuals,
         "companies": companies,
         "entities": all_entities,
-        "accounts": accounts
+        "accounts": accounts,
     }
 
 def get_known_accounts(accounts, n_known=100):
