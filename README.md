@@ -46,6 +46,14 @@ source aml-env/bin/activate
 pip3 install -r requirements.txt
 ```
 
+### Linting
+
+Run flake8 to check code style:
+
+```bash
+flake8
+```
+
 # Files
 ### Patterns.yaml
 The patterns.yaml file contains the instructions for each money laundering technique.
