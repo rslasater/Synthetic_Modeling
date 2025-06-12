@@ -16,34 +16,58 @@ def flag_laundering_accounts(entries, accounts, entities=None):
                     ent.launderer = True
 
 def propagate_laundering(entries):
-    """
-    Propagate laundering labels through debit → credit flow.
-    Assumes double-entry format with 'account_id', 'counterparty', and 'direction'.
-    """
-    tainted_accounts = set()
-    updated_entries = []
+    """Propagate laundering labels based on transaction chronology.
 
-    # First pass — mark tainted accounts directly
-    for entry in entries:
-        if entry.get("is_laundering", False):
-            tainted_accounts.add(entry["account_id"])
+    Only transactions that occur **after** an account's first laundering event
+    are marked. Entries are processed in timestamp order to ensure proper
+    propagation.
+    """
 
-    # Second pass — propagate taint based on flow direction
-    for entry in entries:
-        direction = entry.get("direction")
+    from datetime import datetime
+
+    # Sort entries chronologically to track first laundering occurrence
+    sorted_entries = sorted(
+        entries, key=lambda e: e.get("timestamp")
+    )
+
+    tainted_accounts: set[str] = set()
+    first_seen: dict[str, datetime] = {}
+    updated: list[dict] = []
+
+    for entry in sorted_entries:
+        ts_raw = entry.get("timestamp")
+        ts = (
+            datetime.strptime(ts_raw, "%Y-%m-%d %H:%M:%S")
+            if isinstance(ts_raw, str)
+            else ts_raw
+        )
         acct = entry.get("account_id")
         counterparty = entry.get("counterparty")
+        direction = entry.get("direction")
 
-        # If the counterparty is tainted and this account is the recipient, mark it
-        if direction == "credit" and counterparty in tainted_accounts:
+        if entry.get("is_laundering", False):
             tainted_accounts.add(acct)
-            entry["is_laundering"] = True
+            first_seen.setdefault(acct, ts)
 
-        # If this is a tainted debit, make sure the counterparty becomes tainted too
-        if direction == "debit" and acct in tainted_accounts:
+        if (
+            direction == "credit"
+            and counterparty in tainted_accounts
+            and ts >= first_seen[counterparty]
+        ):
+            entry["is_laundering"] = True
+            tainted_accounts.add(acct)
+            first_seen.setdefault(acct, ts)
+
+        if (
+            direction == "debit"
+            and acct in tainted_accounts
+            and ts >= first_seen[acct]
+        ):
+            entry["is_laundering"] = True
             tainted_accounts.add(counterparty)
-            entry["is_laundering"] = True
+            first_seen.setdefault(counterparty, ts)
 
-        updated_entries.append(entry)
+        updated.append(entry)
 
-    return updated_entries
+    # Return entries sorted to maintain chronological order
+    return sorted(updated, key=lambda e: e.get("timestamp"))
