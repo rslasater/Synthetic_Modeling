@@ -4,3 +4,4 @@ Faker==37.1.0
 openpyxl==3.1.5
 pyyaml==6.0.1
 streamlit==1.32.2
+flake8
