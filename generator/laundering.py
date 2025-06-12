@@ -8,7 +8,9 @@ from utils.helpers import (
     describe_transaction,
 )
 
-def generate_laundering_chains(entities, accounts, known_accounts, start_date, end_date, n_chains=10, min_start_time=None):
+def generate_laundering_chains(
+    entities, accounts, known_accounts, start_date, end_date, n_chains=10, min_start_time=None
+):
     """Generate laundering transactions after legitimate activity."""
     if min_start_time:
         accounts = [
@@ -16,6 +18,11 @@ def generate_laundering_chains(entities, accounts, known_accounts, start_date, e
             for a in accounts
             if a.id in min_start_time and min_start_time[a.id] <= end_date
         ]
+
+    # Prefer accounts already marked as laundering agents
+    launderer_accounts = [a for a in accounts if getattr(a, "launderer", False)]
+    if launderer_accounts:
+        accounts = launderer_accounts
     transactions = []
     for _ in range(n_chains):
         if not accounts:

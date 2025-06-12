@@ -91,7 +91,7 @@ python main.py --agent_profiles agents/agent_profiles.xlsx
 python main.py --laundering_ratio 0.1
 ```
 
-The first command loads agent profiles to drive transaction generation. The second example lowers the laundering activity so that only about 10% of the volume is illicit. When `transaction_probability` (also called `payment_probabilities` in older files) is provided alongside `accepted_payment_types`, the values are treated as weights when selecting a payment type for each transaction.
+The first command loads agent profiles to drive transaction generation. The second example lowers the laundering activity so that only about 10% of the volume is illicit. When the requested ratio would otherwise remove illicit activity, the generator instead creates more legitimate transactions. When `transaction_probability` (also called `payment_probabilities` in older files) is provided alongside `accepted_payment_types`, the values are treated as weights when selecting a payment type for each transaction.
 
 ### BEnt Entities (ATMs/Tellers)
 `BEnt` rows in the agent profiles represent bank entities such as ATMs or teller locations. They provide the IDs and addresses used when cash withdrawals and deposits occur. Be sure to include them in the profile data so cash transactions can reference the correct location. If no `BEnt` information is provided, the generator will create placeholder ATMs.

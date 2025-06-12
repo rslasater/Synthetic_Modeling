@@ -138,12 +138,23 @@ def main():
         log(f"✅ Laundering transactions generated (chains): {len(laundering_txns)}")
 
     if laundering_txns:
-        max_laundering = int(len(legit_txns) * args.laundering_ratio)
-        if max_laundering and len(laundering_txns) > max_laundering:
-            laundering_txns = random.sample(laundering_txns, max_laundering)
+        desired_legit = int(len(laundering_txns) / args.laundering_ratio)
+        if len(legit_txns) < desired_legit:
+            extra = desired_legit - len(legit_txns)
             log(
-                f"✂️  Truncated laundering transactions to ratio {args.laundering_ratio}: {len(laundering_txns)}"
+                f"⚖️  Generating {extra} additional legitimate transactions to maintain ratio {args.laundering_ratio}"
             )
+            more_txns = generate_legit_transactions(
+                accounts=accounts,
+                entities=entities,
+                n=extra,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                known_accounts=known_accounts_set,
+            )
+            legit_txns.extend(more_txns)
+            log(f"✅ Additional legitimate transactions generated: {len(more_txns)}")
+
         flag_laundering_accounts(laundering_txns, accounts, entities)
 
     log("🔍 Propagating laundering labels (taint tracking)...")
