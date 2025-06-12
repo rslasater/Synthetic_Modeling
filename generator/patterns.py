@@ -74,7 +74,7 @@ def inject_cycle_pattern(accounts, pattern, known_accounts, min_start_time=None)
             continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
 
         entries = split_transaction(
             txn_id=txn_id,
@@ -125,7 +125,7 @@ def inject_fan_out_pattern(accounts, pattern, known_accounts, min_start_time=Non
             continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
 
         entries = split_transaction(
             txn_id=txn_id,
@@ -185,7 +185,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_t
                 continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
 
             entries = split_transaction(
                 txn_id=txn_id,
@@ -214,7 +214,7 @@ def inject_scatter_gather_pattern(accounts, pattern, known_accounts, min_start_t
                 continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
 
             entries = split_transaction(
                 txn_id=txn_id,
@@ -265,7 +265,7 @@ def inject_fan_in_pattern(accounts, pattern, known_accounts, min_start_time=None
             continue
         ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
         payment_type = random.choice(safe_payment_types)
 
         sd = (
@@ -326,7 +326,7 @@ def inject_cash_structuring_pattern(accounts, pattern, known_accounts, min_start
                 continue
             ts_dt = generate_transaction_timestamp(txn_start, end_dt, override_hours=True)
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
             txn_id = generate_uuid()
 
             src = None if deposit else acct

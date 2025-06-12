@@ -120,7 +120,7 @@ def generate_legit_transactions(accounts, entities, n=1000, start_date="2025-01-
             entity_type=primary_entity.__class__.__name__,
         )
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
         amount = round(random.uniform(50, 5000), 2)
         if payment_type.lower() == "cash":
             divisor = random.randint(2, 5)
@@ -391,7 +391,7 @@ def generate_profile_transactions(
 
                 ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type=payer_acct.owner_type)
                 timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-                post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+                post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
                 txn_id = generate_uuid()
 
                 amount = round(amount, 2)
@@ -608,7 +608,7 @@ def generate_profile_transactions(
             pay_end = pay_date.replace(hour=16, minute=59, second=59, microsecond=0)
             ts_dt = generate_transaction_timestamp(pay_start, pay_end, entity_type="Company")
             timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-            post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+            post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
             txn_id = generate_uuid()
 
             entries = split_transaction(
@@ -664,7 +664,7 @@ def generate_profile_transactions(
 
         ts_dt = generate_transaction_timestamp(start_dt, end_dt, entity_type="Company")
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
         txn_id = generate_uuid()
 
         amount = round(min(amt, ATM_LIMIT), 2)

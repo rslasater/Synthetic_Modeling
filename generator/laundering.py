@@ -89,7 +89,7 @@ def generate_layering(origin_acct, intermediaries, start, end, known_accounts, m
             continue
         ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
         amount = round(random.uniform(1000, 5000), 2)
         payment_type = random.choice(["wire", "ach"])
         purpose = "Layering"
@@ -135,7 +135,7 @@ def generate_circular(origin_acct, intermediaries, start, end, known_accounts, m
         return txns
     ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
     timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-    post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+    post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
     amount = round(random.uniform(900, 3000), 2)
     payment_type = random.choice(["wire", "ach"])
     purpose = "Circular Flow"
@@ -175,7 +175,7 @@ def generate_burst(origin_acct, start, end, known_accounts, n_bursts=5, min_star
             continue
         ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
-        post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
+        post_date = generate_post_date(ts_dt).strftime("%m/%d/%Y")
         amount = round(random.uniform(100, 500), 2)
         payment_type = "ach"
         purpose = "Burst Structuring"
