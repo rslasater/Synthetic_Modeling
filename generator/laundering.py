@@ -1,4 +1,5 @@
 import random
+from datetime import timedelta
 from utils.helpers import (
     generate_uuid,
     generate_transaction_timestamp,
@@ -10,7 +11,11 @@ from utils.helpers import (
 def generate_laundering_chains(entities, accounts, known_accounts, start_date, end_date, n_chains=10, min_start_time=None):
     """Generate laundering transactions after legitimate activity."""
     if min_start_time:
-        accounts = [a for a in accounts if a.id in min_start_time]
+        accounts = [
+            a
+            for a in accounts
+            if a.id in min_start_time and min_start_time[a.id] <= end_date
+        ]
     transactions = []
     for _ in range(n_chains):
         if not accounts:
@@ -29,15 +34,16 @@ def generate_laundering_chains(entities, accounts, known_accounts, start_date, e
         if not intermediaries:
             continue
 
+        chain_start = generate_transaction_timestamp(start_date, end_date, override_hours=True)
         txns = []
         if pattern_type == "layering":
-            txns = generate_layering(origin_acct, intermediaries, start_date, end_date, known_accounts, min_start_time)
+            txns = generate_layering(origin_acct, intermediaries, chain_start, end_date, known_accounts, min_start_time)
 
         elif pattern_type == "circular":
-            txns = generate_circular(origin_acct, intermediaries, start_date, end_date, known_accounts, min_start_time)
+            txns = generate_circular(origin_acct, intermediaries, chain_start, end_date, known_accounts, min_start_time)
 
         elif pattern_type == "burst":
-            txns = generate_burst(origin_acct, start_date, end_date, known_accounts, min_start_time=min_start_time)
+            txns = generate_burst(origin_acct, chain_start, end_date, known_accounts, min_start_time=min_start_time)
 
         transactions.extend(txns)
 
@@ -63,14 +69,17 @@ def get_intermediaries(origin, entities, min_count=2, valid_map=None):
 def generate_layering(origin_acct, intermediaries, start, end, known_accounts, min_start_time=None):
     txns = []
     chain = [origin_acct] + [random.choice(e.accounts) for e in intermediaries]
+    base_time = generate_transaction_timestamp(start, end, override_hours=True)
     for i in range(len(chain) - 1):
         src, tgt = chain[i], chain[i + 1]
         txn_id = generate_uuid()
-        txn_start = start
+        txn_start = base_time
         if min_start_time:
             for acct in (src, tgt):
                 if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                     txn_start = min_start_time[acct.id]
+        if txn_start > end:
+            continue
         ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -98,6 +107,10 @@ def generate_layering(origin_acct, intermediaries, start, end, known_accounts, m
             post_date=post_date
         )
         txns.extend(entries)
+        # Move base_time forward slightly so events are not all at the same moment
+        base_time = ts_dt + timedelta(minutes=random.randint(5, 120))
+        if base_time > end:
+            base_time = end
     return txns
 
 
@@ -111,6 +124,8 @@ def generate_circular(origin_acct, intermediaries, start, end, known_accounts, m
         for acct in (final, origin_acct):
             if acct.id in min_start_time and min_start_time[acct.id] > txn_start:
                 txn_start = min_start_time[acct.id]
+    if txn_start > end:
+        return txns
     ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
     timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
     post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -143,11 +158,14 @@ def generate_circular(origin_acct, intermediaries, start, end, known_accounts, m
 
 def generate_burst(origin_acct, start, end, known_accounts, n_bursts=5, min_start_time=None):
     txns = []
+    base_time = generate_transaction_timestamp(start, end, override_hours=True)
     for _ in range(n_bursts):
         txn_id = generate_uuid()
-        txn_start = start
+        txn_start = base_time
         if min_start_time and origin_acct.id in min_start_time and min_start_time[origin_acct.id] > txn_start:
             txn_start = min_start_time[origin_acct.id]
+        if txn_start > end:
+            continue
         ts_dt = generate_transaction_timestamp(txn_start, end, override_hours=True)
         timestamp = ts_dt.strftime("%Y-%m-%d %H:%M:%S")
         post_date = generate_post_date(ts_dt).strftime("%Y-%m-%d %H:%M:%S")
@@ -176,4 +194,7 @@ def generate_burst(origin_acct, start, end, known_accounts, n_bursts=5, min_star
             post_date=post_date
         )
         txns.extend(entries)
+        base_time = ts_dt + timedelta(minutes=random.randint(5, 120))
+        if base_time > end:
+            base_time = end
     return txns
