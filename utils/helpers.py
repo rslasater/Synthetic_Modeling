@@ -137,6 +137,7 @@ def split_transaction(
     """Split a transaction into debit and credit entries."""
     known_accounts = known_accounts or set()
     rows = []
+    amount = abs(amount)
 
     src_known = src is not None and hasattr(src, "id") and src.id in known_accounts
     tgt_known = tgt is not None and hasattr(tgt, "id") and tgt.id in known_accounts
@@ -229,7 +230,7 @@ def split_transaction(
                     "timestamp": timestamp,
                     "account_id": tgt.id,
                     "counterparty": placeholder_cp,
-                    "amount": abs(amount),
+                    "amount": amount,
                     "direction": "credit",
                     "currency": currency,
                     "bank_name": tgt.bank_name,
@@ -257,7 +258,7 @@ def split_transaction(
                     "timestamp": timestamp,
                     "account_id": src.id,
                     "counterparty": placeholder_cp,
-                    "amount": -abs(amount),
+                    "amount": amount,
                     "direction": "debit",
                     "currency": currency,
                     "bank_name": src.bank_name,
@@ -284,7 +285,7 @@ def split_transaction(
                 "timestamp": timestamp,
                 "account_id": src.id,
                 "counterparty": tgt.id if tgt else placeholder_cp,
-                "amount": -abs(amount),
+                "amount": amount,
                 "direction": "debit",
                 "currency": currency,
                 "bank_name": src.bank_name,
@@ -309,7 +310,7 @@ def split_transaction(
                 "timestamp": timestamp,
                 "account_id": tgt.id,
                 "counterparty": src.id if src else placeholder_cp,
-                "amount": abs(amount),
+                "amount": amount,
                 "direction": "credit",
                 "currency": currency,
                 "bank_name": tgt.bank_name,
@@ -337,7 +338,7 @@ def split_transaction(
             "timestamp": timestamp,
             "account_id": src.id,
             "counterparty": tgt.id,
-            "amount": -abs(amount),
+            "amount": amount,
             "direction": "debit",
             "currency": currency,
             "bank_name": src.bank_name,
@@ -359,7 +360,7 @@ def split_transaction(
             "timestamp": timestamp,
             "account_id": tgt.id,
             "counterparty": src.id if src else "",
-            "amount": abs(amount),
+            "amount": amount,
             "direction": "credit",
             "currency": currency,
             "bank_name": tgt.bank_name,
@@ -381,7 +382,7 @@ def split_transaction(
             "timestamp": timestamp,
             "account_id": src.id,
             "counterparty": "",
-            "amount": -25.0,
+            "amount": 25.0,
             "direction": "debit",
             "currency": currency,
             "bank_name": src.bank_name,
